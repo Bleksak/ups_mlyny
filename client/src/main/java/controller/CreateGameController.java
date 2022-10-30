@@ -9,13 +9,17 @@ import javafx.scene.control.TextField;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import model.Client;
 
+import java.io.IOException;
 import java.util.Objects;
 
 public class CreateGameController {
 
     private static final int MAX_PLAYERS = 2;
-    private int currentPlayers;
+    private int currentPlayers = 1;
+
+    private Client client;
 
     @FXML
     private Scene self;
@@ -43,8 +47,23 @@ public class CreateGameController {
 
     @FXML
     void initialize() {
-//        send request to create a game
-//        on socket update => createTextField()
+
+        try {
+            client = Client.getInstance();
+            long game_id = client.readLong();
+            long player_id = client.readLong();
+            client.endRead();
+
+            inviteLinkTextField.setText(String.format("%d", game_id));
+            System.out.println(game_id);
+            System.out.println(player_id);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        // we check if game was created successfully
+        // then check every 5 seconds if player has joined
+
         connectedPlayersText.setText(createTextField());
     }
 

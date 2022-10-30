@@ -1,7 +1,10 @@
-CC = clang
+CC = gcc
 CFLAGS = -Wall -Wextra -pedantic
-BIN = server.exe
-OBJ = src/main.o src/board.o src/game.o
+BIN = server
+OBJ = src/main.o src/board.o src/game.o src/error.o src/app.o src/server_messages.o
+
+run: $(BIN)
+	./server
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@

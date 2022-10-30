@@ -7,10 +7,15 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.input.MouseEvent;
 import javafx.stage.Stage;
+import model.Client;
+import model.ClientMessage;
+import model.ServerMessage;
 
+import java.io.IOException;
 import java.util.Objects;
 
 public class MainMenuController {
+
     @FXML
     private Scene self;
 
@@ -18,9 +23,24 @@ public class MainMenuController {
     void createGameClicked(MouseEvent event) {
         Stage stage = (Stage) self.getWindow();
         try {
+            Client client = Client.getInstance();
+            client.beginWrite();
+            client.writeInt(ServerMessage.CREATE_GAME.value);
+            client.endWrite();
+            client.beginRead();
+            int result = Client.getInstance().readInt();
+
+
+            if(result != ClientMessage.OK.value) {
+                System.out.println("argggg");
+                client.endRead();
+                throw new IOException();
+            }
+
             Scene scene = FXMLLoader.load(Objects.requireNonNull(CreateGameController.class.getResource("CreateGameView.fxml")));
+            System.out.println("WHAT");
             stage.setScene(scene);
-        } catch(Exception ex) {
+        } catch(IOException ignored) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setContentText("Failed to create a game");
             alert.show();

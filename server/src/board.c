@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "player.h"
 #include "game.h"
 
 #define BOARD_SIZE 24
@@ -8,9 +9,9 @@
 // const int default_node_positions_x[] = {0, 3, 6, 1, 3, 5, 3, 4, 5, 0, 1, 2, 4, 5, 6, 3, 4, 5, 1, 3, 5, 0, 3, 6};
 // const int default_node_positions_y[] = {0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6};
 
-const static size_t neighbors_count[] = {2, 3, 2, 2, 4, 2, 2, 3, 2, 3, 4, 3, 3, 4, 3, 2, 3, 2, 2, 4, 2, 2, 3, 2};
+static const size_t neighbors_count[] = {2, 3, 2, 2, 4, 2, 2, 3, 2, 3, 4, 3, 3, 4, 3, 2, 3, 2, 2, 4, 2, 2, 3, 2};
 
-const static size_t neighbors[][BOARD_SIZE] = {
+static const size_t neighbors[][BOARD_SIZE] = {
     {1, 6}, // 0 
     {0, 2, 4}, // 1
     {1, 14}, // 2
@@ -39,10 +40,10 @@ const static size_t neighbors[][BOARD_SIZE] = {
 
 size_t* get_neighbors(size_t index, size_t* count) {
     *count = neighbors_count[index];
-    return neighbors[index];
+    return (size_t*) neighbors[index];
 }
 
-int occupy(const GameState* state, Player* player, size_t index) {
+int occupy(const Game* state, Player* player, size_t index) {
     if(player != &state->players[state->current_player]) {
         // TODO: RETURN PROPER ERROR ENUM
         return -1;
@@ -78,7 +79,7 @@ static bool is_neighbor(size_t a, size_t b) {
     return false;
 }
 
-int move(const GameState* state, Player* player, size_t start_index, size_t end_index) {
+int move(const Game* state, Player* player, size_t start_index, size_t end_index) {
 
     // CHECK IF ITS PLAYERS TURN
     if(player != &state->players[state->current_player]) {
@@ -93,14 +94,14 @@ int move(const GameState* state, Player* player, size_t start_index, size_t end_
     }
 
     // CHECK IF END POSITION IS EMPTY
-    if(state->board[end_index] != None) {
+    if(state->board[end_index] != NONE) {
         // TODO: RETURN PROPER ERROR ENUM
         return -1;
     }
 
     // CHECK IF PLAYER CAN JUMP (board + inventory == 3)
     if(player->board + player->inventory == 3) {
-        state->board[start_index] = None;
+        state->board[start_index] = NONE;
         state->board[end_index] = player->occupation;
         return 0;
     } 
@@ -111,7 +112,7 @@ int move(const GameState* state, Player* player, size_t start_index, size_t end_
         return -1;
     }
 
-    state->board[start_index] = None;
+    state->board[start_index] = NONE;
     state->board[end_index] = player->occupation;
 
     return 0;
