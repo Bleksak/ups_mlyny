@@ -6,12 +6,12 @@
 template<typename T>
 class ConcurrentQueue {
     public:
-        void push(T item) {
+        auto push(T item) -> void {
             const std::lock_guard<std::mutex> lock(m_mutex);
             m_queue.push(item);
         }
         
-        T pop() {
+        auto pop() -> T {
             const std::lock_guard<std::mutex> lock(m_mutex);
             T item = m_queue.front();
             m_queue.pop();
@@ -19,7 +19,7 @@ class ConcurrentQueue {
             return item;
         }
         
-        bool empty() {
+        auto empty() -> bool {
             const std::lock_guard<std::mutex> lock(m_mutex);
             return m_queue.empty();
         }
