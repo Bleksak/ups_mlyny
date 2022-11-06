@@ -8,12 +8,12 @@ class ConcurrentQueue {
     public:
         auto push(T item) -> void {
             const std::lock_guard<std::mutex> lock(m_mutex);
-            m_queue.push(item);
+            m_queue.emplace(std::move(item));
         }
         
         auto pop() -> T {
             const std::lock_guard<std::mutex> lock(m_mutex);
-            T item = m_queue.front();
+            T item = std::move(m_queue.front());
             m_queue.pop();
             
             return item;

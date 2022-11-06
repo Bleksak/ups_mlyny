@@ -1,22 +1,31 @@
 #pragma once
 
+#include <iostream>
 #include <thread>
 #include <vector>
 #include <optional>
+#include <unordered_map>
 
 #include "player.hpp"
+#include "sender.hpp"
 
 class Server {
     public:
         Server(std::uint16_t port);
         ~Server();
         
-        auto accept_client() -> std::optional<std::thread>;
-        auto run() -> void;
+        auto sender() -> Sender&;
+        auto receiver();
+        auto start() -> std::thread;
         
     private: 
+        auto accept_client() -> int;
         
-        std::vector<Player> players;
+        [[noreturn]]
+        auto static run(Server* server) -> void;
+        
+        Sender m_sender;
+        std::vector<Player> m_players;
         const static int queueSize = 10;
-        const int m_socket;
+        int m_socket;
 };

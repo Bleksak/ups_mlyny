@@ -1,10 +1,10 @@
-CC = clang
-CFLAGS = -Wall -Wextra -pedantic
-BIN = server.exe
-OBJ = src/main.o src/board.o src/game.o
+CXX = clang++
+CXXFLAGS = -Wall -Wextra -pedantic -std=c++17
+BIN = server
+OBJ = src/main.o src/board.o src/game.o src/server.o
 
 %.o: %.cpp
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 $(BIN): $(OBJ)
-	$(CC) $^ -o $@
+	$(CXX) $^ -o $@
