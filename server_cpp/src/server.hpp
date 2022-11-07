@@ -20,6 +20,7 @@ class Server {
         
     private: 
         auto accept_client() -> int;
+        auto disconnect(int client) -> void;
         
         [[noreturn]]
         auto static run(Server* server) -> void;

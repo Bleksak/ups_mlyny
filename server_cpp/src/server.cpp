@@ -1,3 +1,4 @@
+#include <asm-generic/errno-base.h>
 #include <cstring>
 #include <iostream>
 #include <sys/select.h>
@@ -7,6 +8,8 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <linux/sockios.h>
+
 #include <memory>
 #include <utility>
 #include <algorithm>
@@ -31,6 +34,11 @@ Server::Server(std::uint16_t port) {
         std::cerr << "Failed to reuse addr\n";
         std::exit(-1);
     }
+    
+    // if(ioctl(m_socket, FIONBIO, (char *)&on) < 0) {
+    //     std::cerr << "ioctl error\n";
+    //     exit(-1);
+    // }
 
     int code = bind(m_socket, reinterpret_cast<struct sockaddr*>(&server_addr), sizeof(struct sockaddr_in));
 
@@ -73,10 +81,10 @@ auto Server::accept_client() -> int {
         if(item == m_players.end()) {
             m_players.emplace_back(client);
             
-            const char* msg = "initplease";
-            Message mesg(client, strlen(msg), const_cast<char*>(msg));
+            // const char* msg = "initplease";
+            // Message mesg(client, strlen(msg), const_cast<char*>(msg));
             
-            sender().push_message(std::move(mesg));
+            // sender().push_message(std::move(mesg));
             
             return client;
         }
@@ -89,6 +97,24 @@ auto Server::sender() -> Sender& {
     return m_sender;
 }
 
+
+auto Server::disconnect(int client) -> void {
+    std::cout << "disconnecting: " << client << "\n";
+    
+    auto item = std::find_if(m_players.begin(), m_players.end(), [&client] (const Player& p) {
+        return p.socket() == client;
+    });
+    
+    if(item == m_players.end()) {
+        return;
+    }
+    
+    m_players.erase(item);
+    
+    // TODO: REMOVE THE CLOSE
+    close(client);
+}
+
 auto Server::run(Server* server) -> void {
     
     std::vector<pollfd> fds;
@@ -98,9 +124,9 @@ auto Server::run(Server* server) -> void {
     
     fds.push_back(serverfd);
     
-    fd_set clients, readable;
-    FD_ZERO(&clients);
-    FD_SET(server->m_socket, &clients);
+    // fd_set clients, readable;
+    // FD_ZERO(&clients);
+    // FD_SET(server->m_socket, &clients);
     
     while(true) {
         // std::memcpy(std::addressof(readable), std::addressof(clients), sizeof(fd_set));
@@ -117,14 +143,35 @@ auto Server::run(Server* server) -> void {
             fd.revents = 0;
             
             fds.push_back(fd);
+            std::cout << "connected client: " << client << '\n';
             edited--;
         }
         
         for(size_t i = 1; i < client_count && edited > 0; ++i) {
-            if(fds[i].events & POLLIN) {
+            if(fds[i].revents & POLLIN) {
                 // READ READ READ PLZ
+                std::cout << "client " << i << " can be read" << std::endl;
+                
+                int bytes;
+                
+                ioctl(fds[i].fd, FIONREAD, &bytes);
+                
+                if(bytes > 0) {
+                    std::vector<char> buffer;
+                    buffer.resize(bytes);
+                    recv(fds[i].fd, buffer.data(), buffer.size(), 0);
+                    
+                    std::string msg(buffer.begin(), buffer.end());
+                
+                    std::cout << "got a message: " << msg << std::endl;
+                } else {
+                    server->disconnect(i);
+                }
+                
+                
                 edited--;
             }
+            fds[i].revents = 0;
         }
         
         // if(select(FD_SETSIZE, &readable, nullptr, nullptr, nullptr) < 0) {
@@ -136,12 +183,6 @@ auto Server::run(Server* server) -> void {
         
         // for(int i = 3; i < FD_SETSIZE; ++i) {
         // }
-        
-        int client = server->accept_client();
-        
-        if(client > 0) {
-            std::cout << "client joined\n";
-        }
         
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }

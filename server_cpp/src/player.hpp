@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <type_traits>
+#include <unistd.h>
 class Player;
 
 #include "message.hpp"
@@ -19,7 +20,16 @@ class Player {
         }
         
         ~Player() {
-            // TODO: CLOSE THE SOCKET
+            close(m_socket);
+        }
+        
+        Player& operator=(const Player&& p) {
+            m_board_count = std::move(p.m_board_count);
+            m_inventory_count = std::move(p.m_inventory_count);
+            m_color = std::move(p.m_color);
+            m_socket = std::move(p.m_socket);
+            
+            return *this;
         }
         
         Player(Player&& p) {
