@@ -13,7 +13,7 @@ class Receiver {
         }
         
         auto push_message(Message msg) -> void {
-            m_queue.push(msg);
+            m_queue.push(std::move(msg));
         }
         
     private:

@@ -1,6 +1,7 @@
 #include <asm-generic/errno-base.h>
 #include <cstring>
 #include <iostream>
+#include <sstream>
 #include <sys/select.h>
 #include <sys/poll.h>
 #include <sys/socket.h>
@@ -14,6 +15,7 @@
 #include <utility>
 #include <algorithm>
 
+#include "receiver.hpp"
 #include "server.hpp"
 
 Server::Server(std::uint16_t port) {
@@ -81,10 +83,8 @@ auto Server::accept_client() -> int {
         if(item == m_players.end()) {
             m_players.emplace_back(client);
             
-            // const char* msg = "initplease";
-            // Message mesg(client, strlen(msg), const_cast<char*>(msg));
-            
-            // sender().push_message(std::move(mesg));
+            Message mesg(client, MessageType::PLAYER_INIT, 0, nullptr);
+            sender().push_message(std::move(mesg));
             
             return client;
         }
@@ -97,6 +97,9 @@ auto Server::sender() -> Sender& {
     return m_sender;
 }
 
+auto Server::receiver() -> Receiver& {
+    return m_receiver;
+}
 
 auto Server::disconnect(int client) -> void {
     std::cout << "disconnecting: " << client << "\n";
@@ -113,6 +116,12 @@ auto Server::disconnect(int client) -> void {
     
     // TODO: REMOVE THE CLOSE
     close(client);
+}
+
+auto Server::parse_messages(std::string message) -> void {
+    std::istringstream iss(message);
+    std::string msg;
+    std::getline(iss, msg, '!');
 }
 
 auto Server::run(Server* server) -> void {
@@ -150,8 +159,6 @@ auto Server::run(Server* server) -> void {
         for(size_t i = 1; i < client_count && edited > 0; ++i) {
             if(fds[i].revents & POLLIN) {
                 // READ READ READ PLZ
-                std::cout << "client " << i << " can be read" << std::endl;
-                
                 int bytes;
                 
                 ioctl(fds[i].fd, FIONREAD, &bytes);
@@ -160,10 +167,10 @@ auto Server::run(Server* server) -> void {
                     std::vector<char> buffer;
                     buffer.resize(bytes);
                     recv(fds[i].fd, buffer.data(), buffer.size(), 0);
-                    
                     std::string msg(buffer.begin(), buffer.end());
-                
-                    std::cout << "got a message: " << msg << std::endl;
+                    
+                    server->parse_messages(std::move(msg));
+                    
                 } else {
                     server->disconnect(i);
                 }

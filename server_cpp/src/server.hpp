@@ -8,6 +8,7 @@
 
 #include "player.hpp"
 #include "sender.hpp"
+#include "receiver.hpp"
 
 class Server {
     public:
@@ -15,17 +16,20 @@ class Server {
         ~Server();
         
         auto sender() -> Sender&;
-        auto receiver();
+        auto receiver() -> Receiver&;
         auto start() -> std::thread;
         
     private: 
         auto accept_client() -> int;
         auto disconnect(int client) -> void;
+        auto parse_messages(std::string message) -> void;
         
         [[noreturn]]
         auto static run(Server* server) -> void;
         
         Sender m_sender;
+        Receiver m_receiver;
+        
         std::vector<Player> m_players;
         const static int queueSize = 10;
         int m_socket;
