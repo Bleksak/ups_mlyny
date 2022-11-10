@@ -5,6 +5,7 @@
 #include <vector>
 #include <optional>
 #include <unordered_map>
+#include <sys/poll.h>
 
 #include "player.hpp"
 #include "sender.hpp"
@@ -22,10 +23,15 @@ class Server {
     private: 
         auto accept_client() -> int;
         auto disconnect(int client) -> void;
-        auto parse_messages(std::string message) -> void;
+        auto parse_messages(int socket, std::vector<char> message) -> void;
+        
+        auto find_player(int socket) -> std::vector<Player>::iterator;
+        auto find_player(std::string& name) -> std::vector<Player>::iterator;
         
         [[noreturn]]
         auto static run(Server* server) -> void;
+        
+        std::vector<pollfd> m_fds;
         
         Sender m_sender;
         Receiver m_receiver;

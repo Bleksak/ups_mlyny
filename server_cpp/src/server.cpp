@@ -14,11 +14,13 @@
 #include <memory>
 #include <utility>
 #include <algorithm>
+#include <unordered_set>
 
+#include "message.hpp"
 #include "receiver.hpp"
 #include "server.hpp"
 
-Server::Server(std::uint16_t port) {
+Server::Server(std::uint16_t port) : m_receiver(*this) {
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     
     in_addr addr;
@@ -54,6 +56,12 @@ Server::Server(std::uint16_t port) {
         std::cerr << "Failed to listen\n";
         std::exit(-1);
     }
+    
+    pollfd serverfd;
+    serverfd.fd = m_socket;
+    serverfd.events = POLLIN;
+    
+    m_fds.push_back(serverfd);
 }
 
 auto Server::start() -> std::thread {
@@ -101,49 +109,95 @@ auto Server::receiver() -> Receiver& {
     return m_receiver;
 }
 
-auto Server::disconnect(int client) -> void {
-    std::cout << "disconnecting: " << client << "\n";
-    
-    auto item = std::find_if(m_players.begin(), m_players.end(), [&client] (const Player& p) {
-        return p.socket() == client;
+auto Server::disconnect(int index) -> void {
+    auto item = std::find_if(m_players.begin(), m_players.end(), [this, &index] (const Player& p) {
+        return p.socket() == m_fds[index].fd;
     });
+    
+    m_fds.erase(m_fds.begin() + index);
     
     if(item == m_players.end()) {
         return;
     }
     
     m_players.erase(item);
-    
-    // TODO: REMOVE THE CLOSE
-    close(client);
 }
 
-auto Server::parse_messages(std::string message) -> void {
-    std::istringstream iss(message);
-    std::string msg;
-    std::getline(iss, msg, '!');
+auto Server::parse_messages(int socket, std::vector<char> message) -> void {
+    
+    // find \n
+    // read (N-msg_type) bytes from message
+    // push to receiver()
+    // repeat
+    
+    auto search_start = message.begin();
+    
+    while(true) {
+        
+        if(search_start == message.end()) {
+            std::cout << "END?\n";
+            break;
+        }
+        
+        if(search_start + 4 >= message.end()) {
+            std::cout << "packet too short\n";
+            break;
+        }
+        
+        uint32_t msg_len = *reinterpret_cast<uint32_t*>(&*search_start);
+        
+        if(search_start + msg_len > message.end()) {
+            std::cout << "invalid msg len\n";
+            break;
+        }
+        
+        auto endl = std::find(search_start + 4, message.end(), '\n');
+        if(endl == message.end()) {
+            std::cout << "END?";
+            break;
+        }
+        
+        std::string msg_type(search_start + 4, endl+1);
+        std::vector<char> msg_data(endl+1, search_start + msg_len);
+        search_start = search_start + msg_len;
+        
+        MessageType type = RecvMessage::get_type(msg_type);
+        
+        if(type == MessageType::INVALID) {
+            std::cout << "invalid message\n";
+            continue;
+        }
+        
+        RecvMessage msg(socket, type, std::move(msg_data));
+        std::cout << "pushing message";
+        receiver().push_message(msg);
+    }
+}
+        
+auto Server::find_player(int socket) -> std::vector<Player>::iterator {
+    return std::find_if(m_players.begin(), m_players.end(), [&socket] (const Player& player) {
+        return player.socket() == socket;
+    });
+}
+
+auto Server::find_player(std::string& name) -> std::vector<Player>::iterator {
+    return std::find_if(m_players.begin(), m_players.end(), [&name] (const Player& player) {
+        return player.name() == name;
+    });
 }
 
 auto Server::run(Server* server) -> void {
-    
-    std::vector<pollfd> fds;
-    pollfd serverfd;
-    serverfd.fd = server->m_socket;
-    serverfd.events = POLLIN;
-    
-    fds.push_back(serverfd);
-    
     // fd_set clients, readable;
     // FD_ZERO(&clients);
     // FD_SET(server->m_socket, &clients);
+    std::queue<int> disconnected;
     
     while(true) {
         // std::memcpy(std::addressof(readable), std::addressof(clients), sizeof(fd_set));
+        int edited = poll(&server->m_fds[0], server->m_fds.size(), -1);
+        size_t client_count = server->m_fds.size();
         
-        int edited = poll(&fds[0], fds.size(), -1);
-        size_t client_count = fds.size();
-        
-        if(fds[0].revents & POLLIN) {
+        if(server->m_fds[0].revents & POLLIN) {
             int client = server->accept_client();
             pollfd fd;
             
@@ -151,42 +205,44 @@ auto Server::run(Server* server) -> void {
             fd.events = POLLIN;
             fd.revents = 0;
             
-            fds.push_back(fd);
+            server->m_fds.push_back(fd);
             std::cout << "connected client: " << client << '\n';
             edited--;
         }
         
         for(size_t i = 1; i < client_count && edited > 0; ++i) {
-            if(fds[i].revents & POLLIN) {
-                // READ READ READ PLZ
+            if(server->m_fds[i].revents & POLLIN) {
+                std::cout << "client: " << server->m_fds[i].fd << " can read\n";
                 int bytes;
                 
-                ioctl(fds[i].fd, FIONREAD, &bytes);
+                ioctl(server->m_fds[i].fd, FIONREAD, &bytes);
                 
                 if(bytes > 0) {
                     std::vector<char> buffer;
                     buffer.resize(bytes);
-                    recv(fds[i].fd, buffer.data(), buffer.size(), 0);
-                    std::string msg(buffer.begin(), buffer.end());
+                    recv(server->m_fds[i].fd, buffer.data(), buffer.size(), 0);
                     
-                    server->parse_messages(std::move(msg));
-                    
+                    server->parse_messages(server->m_fds[i].fd, std::move(buffer));
                 } else {
-                    server->disconnect(i);
+                    std::cout << "disconnecting " << server->m_fds[i].fd << std::endl;
+                    disconnected.push(i);
                 }
-                
                 
                 edited--;
             }
-            fds[i].revents = 0;
+            
+            server->m_fds[i].revents = 0;
+        }
+        
+        while(!disconnected.empty()) {
+            server->disconnect(disconnected.back());
+            disconnected.pop();
         }
         
         // if(select(FD_SETSIZE, &readable, nullptr, nullptr, nullptr) < 0) {
         //     std::cerr << "select failed\n";
         //     std::exit(-1);
         // }
-        
-        
         
         // for(int i = 3; i < FD_SETSIZE; ++i) {
         // }

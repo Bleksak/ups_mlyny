@@ -12,7 +12,7 @@ class Player {
     
     public:
         Player(int socket) : m_socket(socket) {
-            // TODO: player has no color and game, we need to ask him
+            // TODO: player has no color and game, and name, we need to ask him
         }
         
         auto color() -> const Color& {
@@ -24,6 +24,7 @@ class Player {
         }
         
         Player& operator=(const Player&& p) {
+            m_name = std::move(p.m_name);
             m_board_count = std::move(p.m_board_count);
             m_inventory_count = std::move(p.m_inventory_count);
             m_color = std::move(p.m_color);
@@ -33,10 +34,15 @@ class Player {
         }
         
         Player(Player&& p) {
+            std::swap(p.m_name, m_name);
             std::swap(p.m_board_count, m_board_count);
             std::swap(p.m_inventory_count, m_inventory_count);
             std::swap(p.m_color, m_color);
             std::swap(p.m_socket, m_socket);
+        }
+        
+        auto name() const -> const std::string& {
+            return m_name;
         }
         
         auto board_count() -> size_t {
@@ -75,6 +81,7 @@ class Player {
         }
     
     private:
+        std::string m_name;
         std::mutex m_mutex;
         int m_socket;
         Color m_color;
