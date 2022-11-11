@@ -12,6 +12,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.Alert.AlertType;
+import mlyny.Main;
 import model.Client;
 
 public class ConnectingController extends Thread {
@@ -90,6 +91,8 @@ public class ConnectingController extends Thread {
         } catch(InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
+
+        Main.connectionDone();
     }
 
     @FXML
