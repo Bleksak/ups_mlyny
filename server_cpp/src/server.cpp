@@ -76,8 +76,6 @@ auto Server::accept_client() -> int {
     int client = accept(m_socket, std::addressof(addr), std::addressof(len));
     
     if(client > 0) {
-        
-        // check if client is connected
         int val = 1;
         if(setsockopt(client, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0) {
             std::cerr << "Failed to set KEEP ALIVE\n";
@@ -85,16 +83,13 @@ auto Server::accept_client() -> int {
             std::exit(-1);
         }
         
-        auto item = std::find_if(m_players.begin(), m_players.end(), [&client] (const Player& player) {
-            return player.socket() == client;
-        });
+        Player p(client);
         
-        if(item == m_players.end()) {
-            m_players.emplace_back(client);
-            
-            Message mesg(client, MessageType::PLAYER_INIT, 0, nullptr);
-            sender().push_message(std::move(mesg));
-            
+        if(m_players.push_back_if(std::move(p), [&client](const Player& player) {
+            return player.socket() == client;
+        })) {
+            Message msg(client, MessageType::PLAYER_INIT, 0, nullptr);
+            sender().push_message(std::move(msg));
             return client;
         }
     }
@@ -111,17 +106,15 @@ auto Server::receiver() -> Receiver& {
 }
 
 auto Server::disconnect(int index) -> void {
-    auto item = std::find_if(m_players.begin(), m_players.end(), [this, &index] (const Player& p) {
-        return p.socket() == m_fds[index].fd;
-    });
-    
     m_fds.erase(m_fds.begin() + index);
     
-    if(item == m_players.end()) {
-        return;
-    }
-    
-    m_players.erase(item);
+    m_players.find_and_erase([this, &index] (const Player& p) {
+        return p.socket() == m_fds[index].fd;
+    });
+}
+
+auto Server::games() -> ConcurrentVector<Game>& {
+    return m_games;
 }
 
 auto Server::parse_messages(int socket, std::vector<char> message) -> void {
@@ -134,7 +127,6 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
     auto search_start = message.begin();
     
     while(true) {
-        
         if(search_start == message.end()) {
             std::cout << "END?\n";
             break;
@@ -171,41 +163,41 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
         }
         
         RecvMessage msg(socket, type, std::move(msg_data));
-        receiver().push_message(msg);
+        receiver().push_message(std::move(msg));
     }
 }
         
-auto Server::find_player(int socket) -> Player* {
-    const std::lock_guard<std::mutex> lock(m_player_mutex);
+// auto Server::find_player(int socket) -> Player* {
+//     const std::lock_guard<std::mutex> lock(m_player_mutex);
   
-    auto it = std::find_if(m_players.begin(), m_players.end(), [&socket] (const Player& player) {
-        return player.socket() == socket;
-    });
+//     auto it = std::find_if(m_players.begin(), m_players.end(), [&socket] (const Player& player) {
+//         return player.socket() == socket;
+//     });
     
-    if(it == m_players.end()) {
-        return nullptr;
-    }
+//     if(it == m_players.end()) {
+//         return nullptr;
+//     }
     
-    return std::addressof(*it);
-}
+//     return std::addressof(*it);
+// }
 
-auto Server::players() -> std::vector<Player>& {
+auto Server::players() -> ConcurrentVector<Player>& {
     return m_players;
 }
 
-auto Server::find_player(std::string& name) -> Player* {
-    const std::lock_guard<std::mutex> lock(m_player_mutex);
+// auto Server::find_player(std::string& name) -> Player* {
+//     const std::lock_guard<std::mutex> lock(m_player_mutex);
     
-    auto it = std::find_if(m_players.begin(), m_players.end(), [&name] (const Player& player) {
-        return player.name() == name;
-    });
+//     auto it = std::find_if(m_players.begin(), m_players.end(), [&name] (const Player& player) {
+//         return player.name() == name;
+//     });
     
-    if(it == players().end()) {
-        return nullptr;
-    }
+//     if(it == players().end()) {
+//         return nullptr;
+//     }
     
-    return std::addressof(*it);
-}
+//     return std::addressof(*it);
+// }
 
 auto Server::run(Server* server) -> void {
     // fd_set clients, readable;
@@ -220,14 +212,18 @@ auto Server::run(Server* server) -> void {
         
         if(server->m_fds[0].revents & POLLIN) {
             int client = server->accept_client();
-            pollfd fd;
             
-            fd.fd = client;
-            fd.events = POLLIN;
-            fd.revents = 0;
+            if(client >= 0) {
+                pollfd fd;
             
-            server->m_fds.push_back(fd);
-            std::cout << "connected client: " << client << '\n';
+                fd.fd = client;
+                fd.events = POLLIN;
+                fd.revents = 0;
+            
+                server->m_fds.push_back(fd);
+                std::cout << "connected client: " << client << '\n';
+            }
+            
             edited--;
         }
         

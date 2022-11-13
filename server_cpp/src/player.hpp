@@ -16,10 +16,6 @@ class Player {
             // TODO: player has no color and game, and name, we need to ask him
         }
         
-        auto color() -> const Color& {
-            return m_color;
-        }
-        
         ~Player() {
             close(m_socket);
         }
@@ -40,6 +36,14 @@ class Player {
             std::swap(p.m_inventory_count, m_inventory_count);
             std::swap(p.m_color, m_color);
             std::swap(p.m_socket, m_socket);
+        }
+        
+        auto color() -> const Color& {
+            return m_color;
+        }
+        
+        auto set_color(Color color) -> void {
+            m_color = color;
         }
         
         auto name() const -> const std::string& {
@@ -84,12 +88,20 @@ class Player {
         auto socket() const -> int {
             return m_socket;
         }
+        
+        auto reset() -> void {
+            m_board_count = DEFAULT_BOARD_COUNT;
+            m_inventory_count = DEFAULT_INV_COUNT;
+        }
     
     private:
         std::string m_name;
         std::mutex m_mutex;
         int m_socket;
         Color m_color;
-        size_t m_board_count;
-        size_t m_inventory_count = 9;
+        
+        const static size_t DEFAULT_BOARD_COUNT = 0;
+        const static size_t DEFAULT_INV_COUNT = 9;
+        size_t m_board_count = DEFAULT_BOARD_COUNT;
+        size_t m_inventory_count = DEFAULT_INV_COUNT;
 };

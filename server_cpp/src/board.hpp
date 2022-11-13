@@ -14,6 +14,11 @@ enum Color {
 
 class Board {
     public:
+        
+        Board();
+        ~Board();
+        Board& operator=(Board&& other);
+        
         const static size_t BOARD_SIZE = 24;
         
         auto board() -> std::array<uint32_t, BOARD_SIZE>;

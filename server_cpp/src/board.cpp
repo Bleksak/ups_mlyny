@@ -30,6 +30,19 @@ static const std::vector<std::vector<size_t>> neighbors({
     {14, 22} // 23
 });
 
+Board::Board() {
+    
+}
+
+Board::~Board() {
+    
+}
+
+Board& Board::operator=(Board&& other) {
+    m_board = std::move(other.m_board);
+    return *this;
+}
+
 auto Board::get_neighbors(size_t index) -> const std::vector<size_t>& {
     return neighbors[index];
 }

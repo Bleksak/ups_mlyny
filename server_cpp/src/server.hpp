@@ -11,6 +11,8 @@
 #include "player.hpp"
 #include "sender.hpp"
 #include "receiver.hpp"
+#include "game.hpp"
+#include "cvector.hpp"
 
 class Server {
     public:
@@ -21,10 +23,8 @@ class Server {
         auto receiver() -> Receiver&;
         auto start() -> std::thread;
         
-        auto find_player(int socket) -> Player*;
-        auto find_player(std::string& name) -> Player*;
-        
-        auto players() -> std::vector<Player>&;
+        auto players() -> ConcurrentVector<Player>&;
+        auto games() -> ConcurrentVector<Game>&;
         
     private: 
         auto accept_client() -> int;
@@ -39,9 +39,8 @@ class Server {
         Sender m_sender;
         Receiver m_receiver;
         
-        std::vector<Player> m_players;
+        ConcurrentVector<Player> m_players;
+        ConcurrentVector<Game> m_games;
         const static int queueSize = 10;
         int m_socket;
-        
-        std::mutex m_player_mutex;
 };
