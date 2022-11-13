@@ -19,12 +19,15 @@ enum MessageType {
     OK,
     NOK,
     PLAYER_INIT,
-    PLAYER_INIT_RES,
+    PLAYER_INIT_CREATE,
+    PLAYER_INIT_JOIN,
     PLAYER_PUT,
     PLAYER_MV,
     PLAYER_TAKE,
     PING,
     PONG,
+    PLAYER_INIT_USERNAME_INVALID,
+    PLAYER_INIT_USERNAME_USED
 };
 
 class Message {
@@ -97,12 +100,15 @@ class Message {
             std::make_pair(MessageType::OK, "LIFE IS GOOD\n"),
             std::make_pair(MessageType::NOK, "LIFE IS BAD\n"),
             std::make_pair(MessageType::PLAYER_INIT, "TELL ME WHO YOU ARE\n"),
-            std::make_pair(MessageType::PLAYER_INIT_RES, "I AM TELLING YOU WHO I AM\n"),
+            std::make_pair(MessageType::PLAYER_INIT_CREATE, "BY YOUR HAND ALL THINGS WERE MADE... EVEN ME\n"),
+            std::make_pair(MessageType::PLAYER_INIT_JOIN, "I AM TELLING YOU WHO I AM\n"),
             std::make_pair(MessageType::PLAYER_PUT, "SIT DOWN\n"),
             std::make_pair(MessageType::PLAYER_MV, "IM GONNA DO WHATS CALLED A PRO-GAMER MOVE\n"),
             std::make_pair(MessageType::PLAYER_TAKE, "NIGGAS GONNA ROB\n"),
             std::make_pair(MessageType::PING, "KNOCK KNOCK\n"),
             std::make_pair(MessageType::PONG, "WHOS THERE?\n"),
+            std::make_pair(MessageType::PLAYER_INIT_USERNAME_INVALID, "YOUR ARGUMENT IS INVALID\n"),
+            std::make_pair(MessageType::PLAYER_INIT_USERNAME_USED, "IF I LICK IT ITS MINE\n"),
         };
         
     private:

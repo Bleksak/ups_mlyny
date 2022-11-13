@@ -3,6 +3,7 @@
 #include <iostream>
 #include <type_traits>
 #include <unistd.h>
+#include <utility>
 class Player;
 
 #include "message.hpp"
@@ -43,6 +44,10 @@ class Player {
         
         auto name() const -> const std::string& {
             return m_name;
+        }
+        
+        auto set_name(std::string name) -> void {
+            m_name = std::move(name);
         }
         
         auto board_count() -> size_t {
@@ -86,5 +91,5 @@ class Player {
         int m_socket;
         Color m_color;
         size_t m_board_count;
-        size_t m_inventory_count;
+        size_t m_inventory_count = 9;
 };

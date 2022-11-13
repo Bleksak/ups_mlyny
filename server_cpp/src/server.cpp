@@ -1,6 +1,7 @@
 #include <asm-generic/errno-base.h>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <sys/select.h>
 #include <sys/poll.h>
@@ -158,6 +159,7 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
         }
         
         std::string msg_type(search_start + 4, endl+1);
+        
         std::vector<char> msg_data(endl+1, search_start + msg_len);
         search_start = search_start + msg_len;
         
@@ -169,21 +171,40 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
         }
         
         RecvMessage msg(socket, type, std::move(msg_data));
-        std::cout << "pushing message";
         receiver().push_message(msg);
     }
 }
         
-auto Server::find_player(int socket) -> std::vector<Player>::iterator {
-    return std::find_if(m_players.begin(), m_players.end(), [&socket] (const Player& player) {
+auto Server::find_player(int socket) -> Player* {
+    const std::lock_guard<std::mutex> lock(m_player_mutex);
+  
+    auto it = std::find_if(m_players.begin(), m_players.end(), [&socket] (const Player& player) {
         return player.socket() == socket;
     });
+    
+    if(it == m_players.end()) {
+        return nullptr;
+    }
+    
+    return std::addressof(*it);
 }
 
-auto Server::find_player(std::string& name) -> std::vector<Player>::iterator {
-    return std::find_if(m_players.begin(), m_players.end(), [&name] (const Player& player) {
+auto Server::players() -> std::vector<Player>& {
+    return m_players;
+}
+
+auto Server::find_player(std::string& name) -> Player* {
+    const std::lock_guard<std::mutex> lock(m_player_mutex);
+    
+    auto it = std::find_if(m_players.begin(), m_players.end(), [&name] (const Player& player) {
         return player.name() == name;
     });
+    
+    if(it == players().end()) {
+        return nullptr;
+    }
+    
+    return std::addressof(*it);
 }
 
 auto Server::run(Server* server) -> void {

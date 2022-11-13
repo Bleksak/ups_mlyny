@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <mutex>
 #include <thread>
 #include <vector>
 #include <optional>
@@ -20,13 +21,15 @@ class Server {
         auto receiver() -> Receiver&;
         auto start() -> std::thread;
         
+        auto find_player(int socket) -> Player*;
+        auto find_player(std::string& name) -> Player*;
+        
+        auto players() -> std::vector<Player>&;
+        
     private: 
         auto accept_client() -> int;
         auto disconnect(int client) -> void;
         auto parse_messages(int socket, std::vector<char> message) -> void;
-        
-        auto find_player(int socket) -> std::vector<Player>::iterator;
-        auto find_player(std::string& name) -> std::vector<Player>::iterator;
         
         [[noreturn]]
         auto static run(Server* server) -> void;
@@ -39,4 +42,6 @@ class Server {
         std::vector<Player> m_players;
         const static int queueSize = 10;
         int m_socket;
+        
+        std::mutex m_player_mutex;
 };

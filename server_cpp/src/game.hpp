@@ -16,6 +16,8 @@ class Game {
         // player removes enemy stone
         
     private:
+        // holds players' names
+        std::array<std::string, 2> m_players;
         Board m_board;
         std::mutex m_mutex;
 };

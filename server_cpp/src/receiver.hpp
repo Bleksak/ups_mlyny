@@ -24,10 +24,9 @@ class Receiver {
         
     private:
         [[noreturn]]
-        static auto run(Receiver* receiver) -> volatile void {
+        static auto run(Receiver* receiver) -> void {
             while(true) {
                 while(!receiver->m_queue.empty()) {
-                    std::cout << "waat" << std::endl;
                     RecvMessage msg = receiver->m_queue.pop();
                     std::cout << msg.socket() << std::endl;
                     
@@ -50,7 +49,7 @@ class Receiver {
             // std::make_pair(MessageType::OK,),
             // std::make_pair(MessageType::NOK,,
             // std::make_pair(MessageType::PLAYER_INIT, "TELL ME WHO YOU ARE\n"),
-            std::make_pair(MessageType::PLAYER_INIT_RES, Command::player_init),
+            std::make_pair(MessageType::PLAYER_INIT_CREATE, Command::player_init_create),
             // std::make_pair(MessageType::PLAYER_PUT, "\n"),
             // std::make_pair(MessageType::PLAYER_MV, "IM GONNA DO WHATS CALLED A PRO-GAMER MOVE\n"),
             // std::make_pair(MessageType::PLAYER_TAKE, "NIGGAS GONNA ROB\n"),

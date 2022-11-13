@@ -8,8 +8,7 @@ class Server;
 
 class Command {
     public:
-        virtual ~Command() = 0;
-        static void player_init(Server& server, RecvMessage data);
+        static void player_init_create(Server& server, RecvMessage data);
         static void ping(Server& server, RecvMessage data);
 };
 
