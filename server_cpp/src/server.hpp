@@ -13,6 +13,7 @@
 #include "receiver.hpp"
 #include "game.hpp"
 #include "cvector.hpp"
+#include "socket.hpp"
 
 class Server {
     public:
@@ -23,7 +24,7 @@ class Server {
         auto receiver() -> Receiver&;
         auto start() -> std::thread;
         
-        auto players() -> ConcurrentVector<Player>&;
+        auto sockets() -> ConcurrentVector<Socket>&;
         auto games() -> ConcurrentVector<Game>&;
         
     private: 
@@ -39,7 +40,7 @@ class Server {
         Sender m_sender;
         Receiver m_receiver;
         
-        ConcurrentVector<Player> m_players;
+        ConcurrentVector<Socket> m_sockets;
         ConcurrentVector<Game> m_games;
         const static int queueSize = 10;
         int m_socket;

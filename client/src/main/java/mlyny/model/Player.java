@@ -1,4 +1,4 @@
-package model;
+package mlyny.model;
 
 public record Player(long id) {
     public Player {
@@ -6,4 +6,7 @@ public record Player(long id) {
             throw new IllegalArgumentException("Player ID cannot be zero");
         }
     }
+
+    
+
 }

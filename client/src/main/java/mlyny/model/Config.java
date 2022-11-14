@@ -1,4 +1,4 @@
-package model;
+package mlyny.model;
 
 public class Config {
     public static final String address = "127.0.0.1";

@@ -83,15 +83,9 @@ auto Server::accept_client() -> int {
             std::exit(-1);
         }
         
-        Player p(client);
-        
-        if(m_players.push_back_if(std::move(p), [&client](const Player& player) {
-            return player.socket() == client;
-        })) {
-            Message msg(client, MessageType::PLAYER_INIT, 0, nullptr);
-            sender().push_message(std::move(msg));
-            return client;
-        }
+        Message msg(client, MessageType::PLAYER_INIT, 0, nullptr);
+        sender().push_message(std::move(msg));
+        return client;
     }
     
     return 0;
@@ -108,8 +102,8 @@ auto Server::receiver() -> Receiver& {
 auto Server::disconnect(int index) -> void {
     m_fds.erase(m_fds.begin() + index);
     
-    m_players.find_and_erase([this, &index] (const Player& p) {
-        return p.socket() == m_fds[index].fd;
+    sockets().find_and_erase([this, &index] (const Socket& s) {
+        return s.socket() == m_fds[index].fd;
     });
 }
 
@@ -181,8 +175,8 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
 //     return std::addressof(*it);
 // }
 
-auto Server::players() -> ConcurrentVector<Player>& {
-    return m_players;
+auto Server::sockets() -> ConcurrentVector<Socket>& {
+    return m_sockets;
 }
 
 // auto Server::find_player(std::string& name) -> Player* {

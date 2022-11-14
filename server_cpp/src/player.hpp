@@ -12,20 +12,15 @@ class Player;
 class Player {
     
     public:
-        Player(int socket) : m_socket(socket) {
-            // TODO: player has no color and game, and name, we need to ask him
-        }
-        
-        ~Player() {
-            close(m_socket);
-        }
+        Player() {}
+        Player(std::string username): m_name(std::move(username)) {}
+        ~Player() {}
         
         Player& operator=(const Player&& p) {
             m_name = std::move(p.m_name);
             m_board_count = std::move(p.m_board_count);
             m_inventory_count = std::move(p.m_inventory_count);
             m_color = std::move(p.m_color);
-            m_socket = std::move(p.m_socket);
             
             return *this;
         }
@@ -35,7 +30,6 @@ class Player {
             std::swap(p.m_board_count, m_board_count);
             std::swap(p.m_inventory_count, m_inventory_count);
             std::swap(p.m_color, m_color);
-            std::swap(p.m_socket, m_socket);
         }
         
         auto color() -> const Color& {
@@ -85,23 +79,19 @@ class Player {
             return true;
         }
         
-        auto socket() const -> int {
-            return m_socket;
-        }
-        
         auto reset() -> void {
             m_board_count = DEFAULT_BOARD_COUNT;
             m_inventory_count = DEFAULT_INV_COUNT;
         }
     
     private:
-        std::string m_name;
-        std::mutex m_mutex;
-        int m_socket;
-        Color m_color;
-        
         const static size_t DEFAULT_BOARD_COUNT = 0;
         const static size_t DEFAULT_INV_COUNT = 9;
+        
+        std::string m_name;
+        std::mutex m_mutex;
+        Color m_color;
+        
         size_t m_board_count = DEFAULT_BOARD_COUNT;
         size_t m_inventory_count = DEFAULT_INV_COUNT;
 };

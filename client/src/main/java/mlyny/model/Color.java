@@ -1,4 +1,4 @@
-package model;
+package mlyny.model;
 
 public enum Color {
     NONE(0),

@@ -9,7 +9,6 @@
 class Sender {
     public:
         Sender() {
-            // TODO: detach for sender/receiver
             std::thread(Sender::run, this).detach();
         }
         

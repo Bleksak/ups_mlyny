@@ -9,13 +9,11 @@ import javafx.scene.control.TextField;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import mlyny.Main;
 
 import java.util.Objects;
 
-public class JoinGameController {
-
-    @FXML
-    private Scene self;
+public class JoinGameController implements INotifiableController {
 
     @FXML
     private TextField invitationCode;
@@ -28,23 +26,12 @@ public class JoinGameController {
 
     @FXML
     void backToMenuClicked(MouseEvent event) {
-        Stage stage = (Stage) self.getWindow();
-
-        try {
-            Scene scene = FXMLLoader.load(Objects.requireNonNull(MainMenuController.class.getResource("MainMenuView.fxml")));
-            stage.setScene(scene);
-        } catch(Exception ex) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setContentText("Unexpected error has occured, the application will crash now");
-            alert.show();
-            Platform.exit();
-        }
+        Main.setRoot("MainMenuView");
     }
 
     @FXML
     void joinGameClicked(MouseEvent event) {
-//        TODO: send request, update text
-
+        
     }
 
     @FXML

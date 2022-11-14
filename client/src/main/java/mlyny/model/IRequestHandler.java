@@ -1,4 +1,4 @@
-package model;
+package mlyny.model;
 
 /**
  * handles server messages

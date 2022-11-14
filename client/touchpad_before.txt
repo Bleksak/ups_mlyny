@@ -1,0 +1,7 @@
+Synaptics Finger (346):	25, 30, 0
+Synaptics Noise Cancellation (379):	19, 19 
+
+
+
+xinput set-prop 17 "Synaptics Noise Cancellation" 20 20
+xinput set-prop 17 "Synaptics Finger" 50 90 255

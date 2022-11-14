@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <vector>
 #include <utility>
 #include <mutex>
@@ -11,6 +12,12 @@ class ConcurrentVector {
         auto push_back(T&& item) -> void {
             const std::lock_guard<std::mutex> lock(m_mutex);
             m_data.push_back(std::forward<T>(item));
+        }
+        
+        template<typename F>
+        auto insert_sorted(T&& item, F&& predicate) {
+            const std::lock_guard<std::mutex> lock(m_mutex);
+            m_data.insert(std::upper_bound(m_data.begin(), m_data.end(), std::forward<T>(item), predicate), std::forward<T>(item));
         }
     
         template<typename F>
@@ -28,10 +35,7 @@ class ConcurrentVector {
         template<typename F>
         auto find_and_erase(F&& predicate) -> void {
             const std::lock_guard<std::mutex> lock(m_mutex);
-            auto item = std::find_if(m_data.begin(), m_data.end(), predicate);
-            if(item != m_data.end()) {
-                m_data.erase(item);
-            }
+            std::remove_if(m_data.begin(), m_data.end(), predicate);
         }
     
         template<typename F>

@@ -1,4 +1,4 @@
-package model;
+package mlyny.model;
 
 import java.util.Objects;
 

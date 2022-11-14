@@ -2,7 +2,6 @@ package mlyny.controller;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Optional;
 import java.util.ResourceBundle;
 
 import javafx.application.Platform;
@@ -13,9 +12,10 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.Alert.AlertType;
 import mlyny.Main;
-import model.Client;
+import mlyny.model.Client;
+import mlyny.model.PingSpammer;
 
-public class ConnectingController extends Thread {
+public class ConnectingController extends Thread implements INotifiableController {
 
     @FXML
     private ResourceBundle resources;
@@ -25,6 +25,11 @@ public class ConnectingController extends Thread {
 
     @FXML
     private ProgressIndicator spinner;
+
+    private static int connectionCounter = 0;
+
+    private static final String FAILED_CONNECT_MESSAGE   = "Failed to connect, the application will exit now";
+    private static final String FAILED_RECONNECT_MESSAGE = "Failed to reconnect, the application will exit now";
 
     private static final long connectionTimeout = 1000;
 
@@ -38,7 +43,7 @@ public class ConnectingController extends Thread {
 
         alert.showAndWait().ifPresent( type -> {
             if(type == ButtonType.YES) {
-                Platform.exit();
+                Main.exit();
             }
         });
     }
@@ -46,9 +51,9 @@ public class ConnectingController extends Thread {
     void showAlertAndExit() {
         Platform.runLater(() -> {
             Alert alert = new Alert(AlertType.ERROR);
-            alert.setHeaderText("Failed to connect to the server");
+            alert.setHeaderText(connectionCounter == 0 ? FAILED_CONNECT_MESSAGE : FAILED_RECONNECT_MESSAGE);
             alert.showAndWait();
-            Platform.exit();
+            Main.exit();
         });
     }
 
@@ -75,10 +80,11 @@ public class ConnectingController extends Thread {
             }
         }
 
+        client.stopThread();
         start = System.currentTimeMillis();
 
         try {
-            while(!Client.getInstance().connect()) {
+            while(!client.connect()) {
                 if(System.currentTimeMillis() - start >= connectionTimeout) {
                     showAlertAndExit();
                     return;
@@ -90,6 +96,19 @@ public class ConnectingController extends Thread {
             showAlertAndExit();
         } catch(InterruptedException ex) {
             Thread.currentThread().interrupt();
+        }
+
+        connectionCounter += 1;
+
+        System.out.println("starting client");
+
+        PingSpammer ctrl = new PingSpammer();
+        ctrl.setDaemon(true);
+        ctrl.start();
+
+        client.startThread();
+        if(!client.isAlive()) {
+            client.start();
         }
 
         Main.connectionDone();

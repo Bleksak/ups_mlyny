@@ -7,7 +7,7 @@ import javafx.scene.shape.Circle;
 
 import java.util.List;
 
-public class GameController {
+public class GameController implements INotifiableController {
 
     private int lastSelectedIndex = -1;
 
