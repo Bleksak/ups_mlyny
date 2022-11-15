@@ -14,6 +14,7 @@
 #include "game.hpp"
 #include "cvector.hpp"
 #include "socket.hpp"
+#include "game_destroyer.hpp"
 
 class Server {
     public:
@@ -22,6 +23,8 @@ class Server {
         
         auto sender() -> Sender&;
         auto receiver() -> Receiver&;
+        auto destroyer() -> GameDestroyer&;
+        
         auto start() -> std::thread;
         
         auto sockets() -> ConcurrentVector<Socket>&;
@@ -39,6 +42,7 @@ class Server {
         
         Sender m_sender;
         Receiver m_receiver;
+        GameDestroyer m_destroyer;
         
         ConcurrentVector<Socket> m_sockets;
         ConcurrentVector<Game> m_games;

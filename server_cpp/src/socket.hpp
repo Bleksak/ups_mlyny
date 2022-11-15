@@ -6,9 +6,6 @@
 class Socket {
     public:
         Socket(int socket, std::string identifier) : m_socket(socket), m_identifier(identifier) {}
-        // auto bind(std::string identifier) -> void {
-        //     m_identifier = std::move(identifier);
-        // }
         
         Socket(Socket&& other) {
             m_socket = other.m_socket;
@@ -25,8 +22,6 @@ class Socket {
         }
         
         ~Socket() {
-            std::cout << "closing socket\n";
-            
             if(m_socket != -1) {
                 close(m_socket);
             }

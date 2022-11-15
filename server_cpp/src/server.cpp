@@ -20,8 +20,9 @@
 #include "message.hpp"
 #include "receiver.hpp"
 #include "server.hpp"
+#include "socket.hpp"
 
-Server::Server(std::uint16_t port) : m_receiver(*this) {
+Server::Server(std::uint16_t port) : m_receiver(*this), m_destroyer(*this) {
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     
     in_addr addr;
@@ -100,10 +101,24 @@ auto Server::receiver() -> Receiver& {
 }
 
 auto Server::disconnect(int index) -> void {
+    int sock = m_fds[index].fd;
+    
+    auto it = sockets().find([&sock](const Socket& s) {
+        return s.socket() == sock;
+    });
+    
+    auto game = games().find_and_update([it](const Game& game) {
+        return game.players()[0].name() == it->identifier() || game.players()[1].name() == it->identifier();
+    }, [it](Game& game) {
+        for(size_t i = 0; i < 2; ++i) if(game.players()[i].name() == it->identifier()) {
+            game.disconnect(i);
+        }
+    });
+    
     m_fds.erase(m_fds.begin() + index);
     
-    sockets().find_and_erase([this, &index] (const Socket& s) {
-        return s.socket() == m_fds[index].fd;
+    sockets().find_and_erase([&sock] (const Socket& s) {
+        return s.socket() == sock;
     });
 }
 

@@ -31,6 +31,19 @@ class ConcurrentVector {
         
             return false;
         }
+        
+        template<typename F>
+        auto find_and_update(F&& predicate, std::function<void (T&)> callback) -> bool {
+            const std::lock_guard<std::mutex> lock(m_mutex);
+            
+            auto it = std::find_if(m_data.begin(), m_data.end(), predicate);
+            if(it == m_data.end()) {
+                return false;
+            }
+            
+            callback(*it);
+            return true;
+        }
     
         template<typename F>
         auto find_and_erase(F&& predicate) -> void {
@@ -43,6 +56,12 @@ class ConcurrentVector {
             const std::lock_guard<std::mutex> lock(m_mutex);
             auto it = std::find_if(m_data.begin(), m_data.end(), predicate);
             return (it == m_data.end()) ? nullptr : std::addressof(*it);
+        }
+        
+        template<typename U, typename F>
+        U atomic_op(F&& callback) {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            return callback(m_data);
         }
     
     private:

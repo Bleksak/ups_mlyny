@@ -115,14 +115,12 @@ void Command::player_init_create(Server& server, RecvMessage data) {
             return sock1.socket() > sock2.socket();
         });
         
-        Game g(Player(std::move(username)));
-        server.games().push_back(std::move(g));
-        std::cout << "GAME CREATED";
+        server.games().push_back(Game(Player(std::move(username))));
         server.sender().push_message(Message(data.socket(), MessageType::OK, 0, nullptr));
     } else {
         if(game_id_connected) {
             // you are connected
-            server.sender().push_message(Message(data.socket(), MessageType::NOK, 0, nullptr));
+            server.sender().push_message(Message(data.socket(), MessageType::OK, 0, nullptr));
         } else if(game_username_connected) {
             // username occupied
             server.sender().push_message(Message(data.socket(), MessageType::PLAYER_INIT_USERNAME_USED, 0, nullptr));

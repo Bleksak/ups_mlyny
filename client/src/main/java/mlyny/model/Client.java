@@ -87,15 +87,11 @@ public class Client extends Thread implements Closeable {
                 break;
             }
 
-            System.out.println("read: " + read);
-
             byte[] bytes = bbuffer.slice(0, read).array();
             for(int i = 0; i < bytes.length; ++i) {
                 byteList.add(bytes[i]);
             }
         }
-
-        System.out.println("asdsddasdfasfd");
 
         byte[] bytes = new byte[byteList.size()];
         for(int i = 0; i < byteList.size(); ++i) {
@@ -106,8 +102,6 @@ public class Client extends Thread implements Closeable {
         int newlineChar = 0;
 
         while(true) {
-            System.out.println("found newline!");
-
             ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart, messageStart + Integer.BYTES));
             int messageLength = Integer.reverseBytes(buffer.getInt());
             
