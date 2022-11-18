@@ -18,11 +18,13 @@ all : $(BIN)
 
 $(BUILD)/main.o : $(SRC)/main.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	@echo "[CC] $@"
+	@$(CXX) -c $(CXXFLAGS) $< -o $@
     
 $(BUILD)/%.o: $(SRC)/%.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+	@echo "[CC] $@"
+	@$(CXX) -c $(CXXFLAGS) $< -o $@
 
 $(BIN): $(OBJ)
 	$(CXX) $^ -o $@

@@ -78,9 +78,9 @@ auto Server::accept_client() -> int {
             std::exit(-1);
         }
         
-        // Message msg(client, Message::Type::PLAYER_INIT, 0, nullptr);
-        // sender().push_message(std::move(msg));
-        // return client;
+        Message msg(client, Message::Type::PLAYER_INIT, 0, nullptr);
+        sender().push_message(std::move(msg));
+        return client;
     }
     
     return 0;
@@ -153,19 +153,19 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
             break;
         }
         
-        std::string msg_type(search_start + 4, endl+1);
+        uint32_t msg_type = *reinterpret_cast<uint32_t*>(std::addressof(*(search_start + 4)));
         
         std::vector<char> msg_data(endl+1, search_start + msg_len);
         search_start = search_start + msg_len;
         
-        Message::Type type = Message::get_type(msg_type);
+        // Message::Type type = Message::get_type(msg_type);
         
-        if(type == MessageType::INVALID) {
-            std::cout << "invalid message\n";
-            continue;
-        }
+        // if(type == MessageType::INVALID) {
+        //     std::cout << "invalid message\n";
+        //     continue;
+        // }
         
-        Message msg(socket, type, std::move(msg_data));
+        Message msg(socket, static_cast<Message::Type>(msg_type), std::move(msg_data));
         receiver().push_message(std::move(msg));
     }
 }
