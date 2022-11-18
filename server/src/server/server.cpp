@@ -21,7 +21,7 @@
 #include "server.hpp"
 #include "socket.hpp"
 
-Server::Server(std::uint16_t port) : m_receiver(*this), m_destroyer(*this) {
+Server::Server(std::uint16_t port) : m_receiver(*this) /*m_destroyer(*this)*/ {
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     
     in_addr addr;
@@ -78,47 +78,47 @@ auto Server::accept_client() -> int {
             std::exit(-1);
         }
         
-        Message msg(client, MessageType::PLAYER_INIT, 0, nullptr);
-        sender().push_message(std::move(msg));
-        return client;
+        // Message msg(client, Message::Type::PLAYER_INIT, 0, nullptr);
+        // sender().push_message(std::move(msg));
+        // return client;
     }
     
     return 0;
 }
 
-auto Server::sender() -> Sender& {
-    return m_sender;
-}
+// auto Server::sender() -> Sender& {
+//     return m_sender;
+// }
 
-auto Server::receiver() -> Receiver& {
-    return m_receiver;
-}
+// auto Server::receiver() -> Receiver& {
+//     return m_receiver;
+// }
 
-auto Server::disconnect(int index) -> void {
-    int sock = m_fds[index].fd;
+// auto Server::disconnect(int index) -> void {
+//     int sock = m_fds[index].fd;
     
-    auto it = sockets().find([&sock](const Socket& s) {
-        return s.socket() == sock;
-    });
+//     auto it = sockets().find([&sock](const Socket& s) {
+//         return s.socket() == sock;
+//     });
     
-    auto game = games().find_and_update([it](const Game& game) {
-        return game.players()[0].name() == it->identifier() || game.players()[1].name() == it->identifier();
-    }, [it](Game& game) {
-        for(size_t i = 0; i < 2; ++i) if(game.players()[i].name() == it->identifier()) {
-            game.disconnect(i);
-        }
-    });
+//     auto game = games().find_and_update([it](const Game& game) {
+//         return game.players()[0].name() == it->identifier() || game.players()[1].name() == it->identifier();
+//     }, [it](Game& game) {
+//         for(size_t i = 0; i < 2; ++i) if(game.players()[i].name() == it->identifier()) {
+//             game.disconnect(i);
+//         }
+//     });
     
-    m_fds.erase(m_fds.begin() + index);
+//     m_fds.erase(m_fds.begin() + index);
     
-    sockets().find_and_erase([&sock] (const Socket& s) {
-        return s.socket() == sock;
-    });
-}
+//     sockets().find_and_erase([&sock] (const Socket& s) {
+//         return s.socket() == sock;
+//     });
+// }
 
-auto Server::games() -> ConcurrentVector<Game>& {
-    return m_games;
-}
+// auto Server::games() -> ConcurrentVector<Game>& {
+//     return m_games;
+// }
 
 auto Server::parse_messages(int socket, std::vector<char> message) -> void {
     
@@ -158,14 +158,14 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
         std::vector<char> msg_data(endl+1, search_start + msg_len);
         search_start = search_start + msg_len;
         
-        MessageType type = RecvMessage::get_type(msg_type);
+        Message::Type type = Message::get_type(msg_type);
         
         if(type == MessageType::INVALID) {
             std::cout << "invalid message\n";
             continue;
         }
         
-        RecvMessage msg(socket, type, std::move(msg_data));
+        Message msg(socket, type, std::move(msg_data));
         receiver().push_message(std::move(msg));
     }
 }

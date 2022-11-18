@@ -22,7 +22,6 @@ void Command::player_init_create(Server& server, RecvMessage data) {
         return data.socket() == sock.socket();
     });
     
-    
     // when do we call Socket(data.socket(), username) ?
     // ALWAYS!
     // but we need some checks:
@@ -109,11 +108,11 @@ void Command::player_init_create(Server& server, RecvMessage data) {
             return sock.identifier() == username;
         });
         
-        Socket new_socket(data.socket(), username);
+        // Socket new_socket(data.socket(), username);
         
-        server.sockets().insert_sorted(std::move(new_socket), [](const Socket& sock1, const Socket& sock2) {
-            return sock1.socket() > sock2.socket();
-        });
+        // server.sockets().insert_sorted(std::move(new_socket), [](const Socket& sock1, const Socket& sock2) {
+        //     return sock1.socket() > sock2.socket();
+        // });
         
         server.games().push_back(Game(Player(std::move(username))));
         server.sender().push_message(Message(data.socket(), MessageType::OK, 0, nullptr));
