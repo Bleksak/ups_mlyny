@@ -1,0 +1,7 @@
+/home/bleksak/ups_mlyny/server_rust/target/debug/deps/server_rust-8441eb2cce258fcb.rmeta: src/main.rs src/server/mod.rs src/server/message.rs
+
+/home/bleksak/ups_mlyny/server_rust/target/debug/deps/server_rust-8441eb2cce258fcb.d: src/main.rs src/server/mod.rs src/server/message.rs
+
+src/main.rs:
+src/server/mod.rs:
+src/server/message.rs:

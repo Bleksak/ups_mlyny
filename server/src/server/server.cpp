@@ -21,7 +21,7 @@
 #include "server.hpp"
 #include "socket.hpp"
 
-Server::Server(std::uint16_t port) : m_receiver(*this) /*m_destroyer(*this)*/ {
+Server::Server(std::uint16_t port) : m_receiver(this) /*m_destroyer(*this)*/ {
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     
     in_addr addr;
@@ -78,52 +78,41 @@ auto Server::accept_client() -> int {
             std::exit(-1);
         }
         
-        Message msg(client, Message::Type::PLAYER_INIT, 0, nullptr);
+        m_sockets.put(client, Socket(client, this));
+        
+        Message msg(client, Message::Type::INIT, 0, nullptr);
         sender().push_message(std::move(msg));
+        
         return client;
     }
     
     return 0;
 }
 
-// auto Server::sender() -> Sender& {
-//     return m_sender;
-// }
+auto Server::sender() -> Sender& {
+    return m_sender;
+}
 
-// auto Server::receiver() -> Receiver& {
-//     return m_receiver;
-// }
+auto Server::receiver() -> Receiver& {
+    return m_receiver;
+}
 
-// auto Server::disconnect(int index) -> void {
-//     int sock = m_fds[index].fd;
+auto Server::disconnect(int index) -> void {
+    int sock = m_fds[index].fd;
     
-//     auto it = sockets().find([&sock](const Socket& s) {
-//         return s.socket() == sock;
-//     });
-    
-//     auto game = games().find_and_update([it](const Game& game) {
-//         return game.players()[0].name() == it->identifier() || game.players()[1].name() == it->identifier();
-//     }, [it](Game& game) {
-//         for(size_t i = 0; i < 2; ++i) if(game.players()[i].name() == it->identifier()) {
-//             game.disconnect(i);
-//         }
-//     });
-    
-//     m_fds.erase(m_fds.begin() + index);
-    
-//     sockets().find_and_erase([&sock] (const Socket& s) {
-//         return s.socket() == sock;
-//     });
-// }
+    sockets().erase(sock);
+    m_fds.erase(m_fds.begin() + index);
+}
 
-// auto Server::games() -> ConcurrentVector<Game>& {
-//     return m_games;
-// }
+auto Server::games() -> ConcurrentVector<Game>& {
+    return m_games;
+}
 
 auto Server::parse_messages(int socket, std::vector<char> message) -> void {
     
-    // find \n
-    // read (N-msg_type) bytes from message
+    // read N = sizeof(uint32_t) (message length)
+    // read sizeof(uint32_t) (message type)
+    // read (N-2*sizeof(uint32_t)) bytes from message
     // push to receiver()
     // repeat
     
@@ -135,88 +124,48 @@ auto Server::parse_messages(int socket, std::vector<char> message) -> void {
             break;
         }
         
-        if(search_start + 4 >= message.end()) {
+        if(search_start + sizeof(uint32_t) >= message.end()) {
             std::cout << "packet too short\n";
             break;
         }
         
-        uint32_t msg_len = *reinterpret_cast<uint32_t*>(&*search_start);
+        uint32_t msg_len = ntohl(*reinterpret_cast<uint32_t*>(&*search_start));
+        
+        std::cout << "len:" << msg_len << std::endl;
         
         if(search_start + msg_len > message.end()) {
             std::cout << "invalid msg len\n";
             break;
         }
         
-        auto endl = std::find(search_start + 4, message.end(), '\n');
-        if(endl == message.end()) {
-            std::cout << "END?";
-            break;
+        uint32_t msg_type = ntohl(*reinterpret_cast<uint32_t*>(&*(search_start + sizeof(uint32_t))));
+        
+        std::vector<char> msg_data;
+        if(msg_len > 2 * sizeof(uint32_t)) {
+            msg_data = std::vector<char>(search_start + 2 * sizeof(uint32_t), search_start + msg_len);
         }
         
-        uint32_t msg_type = *reinterpret_cast<uint32_t*>(std::addressof(*(search_start + 4)));
-        
-        std::vector<char> msg_data(endl+1, search_start + msg_len);
         search_start = search_start + msg_len;
-        
-        // Message::Type type = Message::get_type(msg_type);
-        
-        // if(type == MessageType::INVALID) {
-        //     std::cout << "invalid message\n";
-        //     continue;
-        // }
-        
         Message msg(socket, static_cast<Message::Type>(msg_type), std::move(msg_data));
         receiver().push_message(std::move(msg));
     }
 }
-        
-// auto Server::find_player(int socket) -> Player* {
-//     const std::lock_guard<std::mutex> lock(m_player_mutex);
-  
-//     auto it = std::find_if(m_players.begin(), m_players.end(), [&socket] (const Player& player) {
-//         return player.socket() == socket;
-//     });
-    
-//     if(it == m_players.end()) {
-//         return nullptr;
-//     }
-    
-//     return std::addressof(*it);
-// }
 
-auto Server::sockets() -> ConcurrentVector<Socket>& {
+ConcurrentUnorderedMap<int, Socket>& Server::sockets() {
     return m_sockets;
 }
 
-// auto Server::find_player(std::string& name) -> Player* {
-//     const std::lock_guard<std::mutex> lock(m_player_mutex);
-    
-//     auto it = std::find_if(m_players.begin(), m_players.end(), [&name] (const Player& player) {
-//         return player.name() == name;
-//     });
-    
-//     if(it == players().end()) {
-//         return nullptr;
-//     }
-    
-//     return std::addressof(*it);
-// }
-
 auto Server::run(Server* server) -> void {
-    // fd_set clients, readable;
-    // FD_ZERO(&clients);
-    // FD_SET(server->m_socket, &clients);
     std::queue<int> disconnected;
     
     while(true) {
-        // std::memcpy(std::addressof(readable), std::addressof(clients), sizeof(fd_set));
         int edited = poll(&server->m_fds[0], server->m_fds.size(), -1);
         size_t client_count = server->m_fds.size();
         
         if(server->m_fds[0].revents & POLLIN) {
             int client = server->accept_client();
             
-            if(client >= 0) {
+            if(client > 0) {
                 pollfd fd;
             
                 fd.fd = client;
@@ -258,14 +207,6 @@ auto Server::run(Server* server) -> void {
             server->disconnect(disconnected.back());
             disconnected.pop();
         }
-        
-        // if(select(FD_SETSIZE, &readable, nullptr, nullptr, nullptr) < 0) {
-        //     std::cerr << "select failed\n";
-        //     std::exit(-1);
-        // }
-        
-        // for(int i = 3; i < FD_SETSIZE; ++i) {
-        // }
         
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }

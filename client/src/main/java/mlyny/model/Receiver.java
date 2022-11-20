@@ -28,8 +28,6 @@ public class Receiver extends Thread {
                 Main.getController().receivedMessage(message);
 
                 switch(message.type()) {
-                    case INVALID:
-                        break;
                     case NOK:
                         break;
                     case OK:

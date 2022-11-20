@@ -11,8 +11,9 @@
 // #include "player.hpp"
 #include "sender.hpp"
 #include "receiver.hpp"
-// #include "game.hpp"
+#include "../game/game.hpp"
 #include "../container/cvector.hpp"
+#include "../container/cumap.hpp"
 #include "socket.hpp"
 // #include "game_destroyer.hpp"
 
@@ -26,9 +27,9 @@ class Server {
         // auto destroyer() -> GameDestroyer&;
         
         std::thread start();
-        ConcurrentVector<Socket>& sockets();
+        ConcurrentUnorderedMap<int, Socket>& sockets();
         
-        // auto games() -> ConcurrentVector<Game>&;
+        auto games() -> ConcurrentVector<Game>&;
         
     private: 
         int accept_client();
@@ -44,8 +45,8 @@ class Server {
         Receiver m_receiver;
         // GameDestroyer m_destroyer;
         
-        ConcurrentVector<Socket> m_sockets;
-        // ConcurrentVector<Game> m_games;
+        ConcurrentUnorderedMap<int, Socket> m_sockets;
+        ConcurrentVector<Game> m_games;
         const static int queueSize = 10;
         int m_socket;
 };

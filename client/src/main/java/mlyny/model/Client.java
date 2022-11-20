@@ -15,8 +15,6 @@ import java.util.Set;
 
 public class Client extends Thread implements Closeable {
 
-    private final byte NEWLINE = 10;
-
     private final Selector m_selector;
     private SocketChannel m_socket = null;
 
@@ -99,45 +97,23 @@ public class Client extends Thread implements Closeable {
         }
 
         int messageStart = 0;
-        int newlineChar = 0;
+        final int msg_offset = 2 * Integer.BYTES;
 
-        while(true) {
+        while(messageStart + Integer.BYTES < bytes.length) {
             ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart, messageStart + Integer.BYTES));
-            int messageLength = Integer.reverseBytes(buffer.getInt());
+            int messageLength = buffer.getInt();
+            buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart + Integer.BYTES, messageStart + msg_offset));
+
+            int messageTypeInt = buffer.getInt();
             
             if(bytes.length < messageLength) {
                 System.out.println("Invalid buffer length!");
-                // invalid buffer length (received data too short)
                 return;
             }
 
+            MessageType messageType = MessageType.valueOf(messageTypeInt);
 
-            for(int i = messageStart + Integer.BYTES; i <= bytes.length; ++i) {
-                if(i == bytes.length || bytes[i] == NEWLINE) {
-                    newlineChar = i;
-                    break;
-                }
-            }
-
-            if(newlineChar == bytes.length) {
-                // MESSAGE END (MB INVALID MESSAGE?)
-                System.out.println("Message end / invalid message?");
-                return;
-            }
-
-            // read messageStart...newlineChar
-            String messageTypeStr = new String(Arrays.copyOfRange(bytes, messageStart + Integer.BYTES, newlineChar + 1), StandardCharsets.US_ASCII);
-            MessageType messageType = MessageType.getType(messageTypeStr);
-
-            System.out.println(messageTypeStr);
-
-            if(messageType == MessageType.INVALID) {
-                // invalid message
-                System.out.println("Invalid message");
-                return;
-            }
-
-            byte[] messageData = Arrays.copyOfRange(bytes, newlineChar+1, messageLength);
+            byte[] messageData = Arrays.copyOfRange(bytes, msg_offset, messageLength - msg_offset);
             m_receiver.pushMessage(new Message(m_socket.socket(), messageType, messageData));
 
             messageStart += messageLength;

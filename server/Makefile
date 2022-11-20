@@ -1,12 +1,12 @@
 CXX = clang++
-CXXFLAGS = -Wall -Wextra -pedantic -std=c++17
+CXXFLAGS = -Wall -Wextra -pedantic -std=c++17 -g
 
 BUILD = bin
 SRC = src
 
 BIN = server
 
-HPP = machine/machine.hpp machine/state.hpp server/socket.hpp game/game.hpp game/player.hpp
+HPP = machine/machine.hpp machine/state.hpp server/socket.hpp game/game.hpp game/player.hpp server/server.hpp server/receiver.hpp server/sender.hpp
 CPP = $(HPP:.hpp=.cpp) main.cpp
 
 OBJLIST = $(CPP:.cpp=.o)
@@ -31,3 +31,6 @@ $(BIN): $(OBJ)
 	
 run: $(BIN)
 	./$(BIN)
+
+dbg: $(BIN)
+	lldb ./$(BIN)

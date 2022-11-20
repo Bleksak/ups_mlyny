@@ -10,6 +10,9 @@ class Game {
         // ~Game();
         
         void notify_disconnect(Socket& sock);
+        std::array<Player, 2>& players() {
+            return m_players;
+        }
         
     private:
         std::array<Player, 2> m_players;
