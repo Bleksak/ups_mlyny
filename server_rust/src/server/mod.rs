@@ -1,25 +1,29 @@
-mod message;
+pub mod message;
+pub mod receiver;
 
 use std::io::{self, Write, Read};
 use std::net::{TcpListener, TcpStream};
-use std::os::unix::prelude::AsFd;
 use std::sync::mpsc::{self, Receiver, Sender};
+
+use crate::server::message::Message;
 
 pub struct Server {
     socket: TcpListener,
     clients: Vec<TcpStream>,
-    channel: (Sender<TcpStream>, Receiver<TcpStream>),
+    client_channel: (Sender<TcpStream>, Receiver<TcpStream>),
+    receiver_sender: Sender<(TcpStream, Message)>,
 }
 
 impl Server {
-    pub fn new(port: u16) -> Result<Self, io::Error> {
+    pub fn new(port: u16, recv_sender: Sender<(TcpStream, Message)>) -> Result<Self, io::Error> {
         if port == 0 {
             Err(io::Error::new(io::ErrorKind::Other, "Port 0 is not allowed!"))
         } else {
             Ok(Self {
                 socket: TcpListener::bind(format!("127.0.0.1:{}", port))?,
                 clients: vec![],
-                channel: mpsc::channel()
+                client_channel: mpsc::channel(),
+                receiver_sender: recv_sender,
             })
         }
     }
@@ -52,12 +56,10 @@ impl Server {
                 match err.kind() {
                     io::ErrorKind::WouldBlock => {
                         data.truncate(read_bytes);
-                        println!("some dada");
                         return Some(data)
                     },
                 
                     _ => {
-                        println!("no data?");
                         return None;
                     }
                 }
@@ -75,11 +77,21 @@ impl Server {
     fn process_request(&self, client: &mut TcpStream, data: &Vec<u8>) {
         println!("read some data!");
         println!("{:#?}", data);
+        
+        
+        // TODO: read message(can probably pass it right away to message)
+        // TODO: maybe we need to parse it first
+        
+        if let Some(message) = Message::deserialize(data) {
+            // TODO: this may become mut later
+            let client_clone = client.try_clone().unwrap();
+            self.receiver_sender.send( (client_clone, message) ).unwrap();
+        }
     }
     
     fn run(mut self) {
         loop {
-            if let Ok(client) = self.channel.1.try_recv() {
+            if let Ok(client) = self.client_channel.1.try_recv() {
                 println!("Got new client!");
                 client.set_nonblocking(true).expect("Failed to set client nonblocking");
                 self.clients.push(client);
@@ -119,8 +131,8 @@ impl Server {
         self.socket.set_nonblocking(true).unwrap();
         
         let socket = self.socket.try_clone().unwrap();
-        let tx = self.channel.0.clone();
-
+        let tx = self.client_channel.0.clone();
+        
         let acceptor = std::thread::spawn(move || {
             for client in socket.incoming() {
                 if let Ok(client) = client {
@@ -137,7 +149,3 @@ impl Server {
         acceptor.join().unwrap();
     }
 }
-
-
-
-// f.seekp( N , ios_base::beg);
