@@ -1,21 +1,24 @@
 pub mod message;
 pub mod receiver;
+pub mod client;
 
-use std::io::{self, Write, Read};
+use std::io::{self, Read};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 use crate::server::message::Message;
 
+use self::client::Client;
+
 pub struct Server {
     socket: TcpListener,
-    clients: Vec<TcpStream>,
-    client_channel: (Sender<TcpStream>, Receiver<TcpStream>),
-    receiver_sender: Sender<(TcpStream, Message)>,
+    clients: Vec<Client>,
+    client_channel: (Sender<Client>, Receiver<Client>),
+    receiver_sender: Sender<(Client, Message)>,
 }
 
 impl Server {
-    pub fn new(port: u16, recv_sender: Sender<(TcpStream, Message)>) -> Result<Self, io::Error> {
+    pub fn new(port: u16, recv_sender: Sender<(Client, Message)>) -> Result<Self, io::Error> {
         if port == 0 {
             Err(io::Error::new(io::ErrorKind::Other, "Port 0 is not allowed!"))
         } else {
@@ -74,18 +77,11 @@ impl Server {
         }
     }
     
-    fn process_request(&self, client: &mut TcpStream, data: &Vec<u8>) {
-        println!("read some data!");
-        println!("{:#?}", data);
-        
-        
-        // TODO: read message(can probably pass it right away to message)
-        // TODO: maybe we need to parse it first
+    fn process_request(&self, client: &mut Client, data: &Vec<u8>) {
+        // TODO: maybe we need to parse multiple messages first
         
         if let Some(message) = Message::deserialize(data) {
-            // TODO: this may become mut later
-            let client_clone = client.try_clone().unwrap();
-            self.receiver_sender.send( (client_clone, message) ).unwrap();
+            self.receiver_sender.send( (client.clone(), message) ).unwrap();
         }
     }
     
@@ -93,19 +89,19 @@ impl Server {
         loop {
             if let Ok(client) = self.client_channel.1.try_recv() {
                 println!("Got new client!");
-                client.set_nonblocking(true).expect("Failed to set client nonblocking");
+                client.stream().set_nonblocking(true).expect("Failed to set client nonblocking");
                 self.clients.push(client);
             }
             
             let mut disconnect = vec![];
             
-            let mut data_vec: Vec<(TcpStream, Vec<u8>)> = Vec::new();
+            let mut data_vec: Vec<(Client, Vec<u8>)> = Vec::new();
             for (index, client) in self.clients.iter_mut().enumerate() {
-                if let Some(data) = Self::read_all(client) {
+                if let Some(data) = Self::read_all(client.stream_mut()) {
                     if data.len() == 0 {
                         disconnect.push(index);
                     } else {
-                        data_vec.push((client.try_clone().unwrap(), data));
+                        data_vec.push((client.clone(), data));
                     }
                 }
             }
@@ -123,7 +119,7 @@ impl Server {
                 }
             }
             
-            std::thread::sleep(std::time::Duration::from_millis(20));
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
     }
     
@@ -136,7 +132,7 @@ impl Server {
         let acceptor = std::thread::spawn(move || {
             for client in socket.incoming() {
                 if let Ok(client) = client {
-                    tx.send(client).unwrap();
+                    tx.send(Client::new(client)).unwrap();
                 }
             }
         });

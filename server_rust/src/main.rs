@@ -2,6 +2,7 @@ use server::receiver::MessageReceiver;
 use std::sync::mpsc;
 
 mod server;
+mod machine;
 
 fn main() -> Result<(), std::io::Error> {
     let recv_channel = mpsc::channel();

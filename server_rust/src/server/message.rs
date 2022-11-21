@@ -95,9 +95,9 @@ impl Message {
         
         match msg_type_u32 {
             0 => Some(Self::OK),
-            1 => Some(Self::NOK( if data.len() > 0 { Some(String::from_utf8(bytes.iter().cloned().collect()).ok()?) } else { None } )),
-            2 => Some(Self::CREATE(String::from_utf8(bytes.iter().cloned().collect()).ok()?)),
-            3 => Some(Self::JOIN(String::from_utf8(bytes.iter().cloned().collect()).ok()?)),
+            1 => Some(Self::NOK( if data.len() > 0 { Some(String::from_utf8(data.iter().cloned().collect()).ok()?) } else { None } )),
+            2 => Some(Self::CREATE(String::from_utf8(data.iter().cloned().collect()).ok()?)),
+            3 => Some(Self::JOIN(String::from_utf8(data.iter().cloned().collect()).ok()?)),
             4 => Some(Self::READY),
             5 => if data.len() >= u32_size { Some(Self::PUT(u32::from_be_bytes(data[0..u32_size].try_into().ok()?) as usize)) } else { None },
             6 => if data.len() >= u32_size { Some(Self::TAKE(u32::from_be_bytes(data[0..u32_size].try_into().ok()?) as usize)) } else { None },
