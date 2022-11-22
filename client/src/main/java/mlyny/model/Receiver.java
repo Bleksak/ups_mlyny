@@ -34,9 +34,6 @@ public class Receiver extends Thread {
                         break;
                     case PING:
                         break;
-                    case PLAYER_INIT:
-                        System.out.println("init requested");
-                        break;
                     case PLAYER_INIT_CREATE:
                         break;
                     case PLAYER_INIT_JOIN:
@@ -54,6 +51,10 @@ public class Receiver extends Thread {
                     case PLAYER_INIT_USERNAME_INVALID:
                         break;
                     case PLAYER_INIT_USERNAME_USED:
+                        break;
+                    case OVER:
+                        break;
+                    case READY:
                         break;
                 }
             }

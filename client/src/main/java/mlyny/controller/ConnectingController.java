@@ -31,7 +31,7 @@ public class ConnectingController extends Thread implements INotifiableControlle
     private static final String FAILED_CONNECT_MESSAGE   = "Failed to connect, the application will exit now";
     private static final String FAILED_RECONNECT_MESSAGE = "Failed to reconnect, the application will exit now";
 
-    private static final long connectionTimeout = 1000;
+    private static final long connectionTimeout = 5000;
 
     @FXML
     void disconnect(ActionEvent event) {
@@ -52,6 +52,15 @@ public class ConnectingController extends Thread implements INotifiableControlle
         Platform.runLater(() -> {
             Alert alert = new Alert(AlertType.ERROR);
             alert.setHeaderText(connectionCounter == 0 ? FAILED_CONNECT_MESSAGE : FAILED_RECONNECT_MESSAGE);
+            alert.showAndWait();
+            Main.exit();
+        });
+    }
+
+    void showServerOffAndExit() {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(AlertType.ERROR);
+            alert.setHeaderText("Lost connection to server, server shut down");
             alert.showAndWait();
             Main.exit();
         });
@@ -82,10 +91,13 @@ public class ConnectingController extends Thread implements INotifiableControlle
 
         client.stopThread();
         start = System.currentTimeMillis();
+        System.out.println("trying connection");
 
         try {
             while(!client.connect()) {
-                if(System.currentTimeMillis() - start >= connectionTimeout) {
+                long time = System.currentTimeMillis() - start;
+                System.out.println(time);
+                if(time >= connectionTimeout) {
                     showAlertAndExit();
                     return;
                 }
@@ -93,7 +105,8 @@ public class ConnectingController extends Thread implements INotifiableControlle
                 Thread.sleep(20);
             }
         } catch(IOException ex) {
-            showAlertAndExit();
+            showServerOffAndExit();
+            // showAlertAndExit();
         } catch(InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
@@ -102,7 +115,7 @@ public class ConnectingController extends Thread implements INotifiableControlle
 
         System.out.println("starting client");
 
-        PingSpammer ctrl = new PingSpammer();
+        PingSpammer ctrl = new PingSpammer(client);
         ctrl.setDaemon(true);
         ctrl.start();
 

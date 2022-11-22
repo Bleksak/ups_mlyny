@@ -1,21 +1,21 @@
 package mlyny.model;
 
-import java.util.EnumMap;
 import java.util.HashMap;
 
 public enum MessageType {
     OK(0),
     NOK(1),
-    PLAYER_INIT(2),
-    PLAYER_INIT_CREATE(3),
-    PLAYER_INIT_JOIN(4),
+    PLAYER_INIT_CREATE(2),
+    PLAYER_INIT_JOIN(3),
+    READY(4),
     PLAYER_PUT(5),
     PLAYER_MV(6),
     PLAYER_TAKE(7),
-    PING(8),
-    PONG(9),
-    PLAYER_INIT_USERNAME_INVALID(10),
-    PLAYER_INIT_USERNAME_USED(11);
+    OVER(8),
+    PING(9),
+    PONG(10),
+    PLAYER_INIT_USERNAME_INVALID(11),
+    PLAYER_INIT_USERNAME_USED(12);
 
     private final int m_value;
     private static HashMap<Integer, MessageType> m_reverseMap = new HashMap<>();

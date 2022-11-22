@@ -13,6 +13,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import mlyny.Main;
+
 public class Client extends Thread implements Closeable {
 
     private final Selector m_selector;
@@ -77,11 +79,16 @@ public class Client extends Thread implements Closeable {
         ByteBuffer bbuffer = ByteBuffer.allocate(8192);
         List<Byte> byteList = new ArrayList<Byte>();
 
+        int readBytes = 0;
+
         while(true) {
             bbuffer.clear();
             int read = m_socket.read(bbuffer);
 
-            if(read == 0) {
+            readBytes += read;
+            System.out.println(read + " read");
+
+            if(read <= 0) {
                 break;
             }
 
@@ -91,33 +98,45 @@ public class Client extends Thread implements Closeable {
             }
         }
 
-        byte[] bytes = new byte[byteList.size()];
-        for(int i = 0; i < byteList.size(); ++i) {
+        System.out.println(readBytes + " bytes read");
+        
+        if(readBytes <= 0) {
+            // server off
+            m_socket.close();
+            m_running = false;
+            PingSpammer.shutdown();
+            Main.showConnectingView();
+            return;
+        }
+
+        byte[] bytes = new byte[readBytes];
+        for(int i = 0; i < readBytes; ++i) {
             bytes[i] = byteList.get(i);
         }
 
         int messageStart = 0;
         final int msg_offset = 2 * Integer.BYTES;
 
-        while(messageStart + Integer.BYTES < bytes.length) {
-            ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart, messageStart + Integer.BYTES));
-            int messageLength = buffer.getInt();
-            buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart + Integer.BYTES, messageStart + msg_offset));
+        // System.out.println(messageStart + Integer.BYTES);
+        // System.out.println("is less than");
+        // System.out.println(bytes.length);
+        ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart, messageStart + Integer.BYTES));
+        int messageLength = buffer.getInt();
+        buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart + Integer.BYTES, messageStart + msg_offset));
 
-            int messageTypeInt = buffer.getInt();
+        int messageTypeInt = buffer.getInt();
             
-            if(bytes.length < messageLength) {
-                System.out.println("Invalid buffer length!");
-                return;
-            }
-
-            MessageType messageType = MessageType.valueOf(messageTypeInt);
-
-            byte[] messageData = Arrays.copyOfRange(bytes, msg_offset, messageLength - msg_offset);
-            m_receiver.pushMessage(new Message(m_socket.socket(), messageType, messageData));
-
-            messageStart += messageLength;
+        if(bytes.length < messageLength) {
+            System.out.println("Invalid buffer length!");
+            return;
         }
+
+        MessageType messageType = MessageType.valueOf(messageTypeInt);
+
+        byte[] messageData = messageLength - msg_offset > 0 ? Arrays.copyOfRange(bytes, msg_offset, messageLength - msg_offset) : null;
+        m_receiver.pushMessage(new Message(m_socket.socket(), messageType, messageData));
+
+        messageStart += messageLength;
     }
 
     public void run() {
@@ -126,7 +145,7 @@ public class Client extends Thread implements Closeable {
         while(true) {
             if(!m_running) {
                 try {
-                    Thread.sleep(30);
+                    Thread.sleep(50);
                 } catch (InterruptedException e) {}
             }
 
