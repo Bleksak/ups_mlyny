@@ -9,10 +9,11 @@ pub enum Message {
     TAKE(usize),
     MOVE(usize, usize),
     OVER,
+    PING,
+    PONG,
 }
 
 impl Message {
-    
     // TODO: maybe we need &self, but probably not
     pub fn serialize(self) -> Vec<u8> {
         let u32_size = std::mem::size_of::<u32>() as u32;
@@ -69,6 +70,16 @@ impl Message {
                 v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(8).to_vec());
             },
+            
+            Message::PING => {
+                v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
+                v.append(&mut u32::to_be_bytes(9).to_vec());
+            },
+            
+            Message::PONG => {
+                v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
+                v.append(&mut u32::to_be_bytes(10).to_vec());
+            }
         }
         
         v
@@ -103,6 +114,8 @@ impl Message {
             6 => if data.len() >= u32_size { Some(Self::TAKE(u32::from_be_bytes(data[0..u32_size].try_into().ok()?) as usize)) } else { None },
             7 => if data.len() >= 2*u32_size { Some(Self::MOVE(u32::from_be_bytes(data[0..u32_size].try_into().ok()?) as usize, u32::from_be_bytes(data[u32_size..2*u32_size].try_into().ok()?) as usize)) } else { None },
             8 => Some(Self::OVER),
+            9 => Some(Self::PING),
+            10 => Some(Self::PONG),
             _ => None
         }
     }
