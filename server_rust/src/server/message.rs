@@ -11,6 +11,7 @@ pub enum Message {
     OVER,
     PING,
     PONG,
+    PLAYER_JOINED,
 }
 
 impl Message {
@@ -79,6 +80,10 @@ impl Message {
             Message::PONG => {
                 v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(10).to_vec());
+            },
+            Message::PLAYER_JOINED => {
+                v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
+                v.append(&mut u32::to_be_bytes(11).to_vec());
             }
         }
         
@@ -116,6 +121,7 @@ impl Message {
             8 => Some(Self::OVER),
             9 => Some(Self::PING),
             10 => Some(Self::PONG),
+            11 => Some(Self::PLAYER_JOINED),
             _ => None
         }
     }

@@ -8,13 +8,13 @@ use crate::game::{Game, player::Player};
 
 pub struct MessageReceiver {
     channel: (Sender<(Arc<Mutex<Client>>, Message)>, Receiver<(Arc<Mutex<Client>>, Message)>),
-    games: Vec<Arc<Mutex<Game>>>,
+    games: Arc<Mutex<Vec<Arc<Mutex<Game>>>>>,
     players: HashMap<u32, Weak<Player>>,
 }
 
 impl MessageReceiver {
     pub fn new(channel: (Sender<(Arc<Mutex<Client>>, Message)>, Receiver<(Arc<Mutex<Client>>, Message)>)) -> Self {
-        Self { channel, games: vec![], players: HashMap::new() }
+        Self { channel, games: Arc::new(Mutex::new(vec![])), players: HashMap::new() }
     }
     
     pub fn sender(&self) -> Sender<(Arc<Mutex<Client>>, Message)> {
@@ -24,6 +24,8 @@ impl MessageReceiver {
     pub fn run(receiver: Arc<Mutex<Self>>) {
         loop {
             while let Ok((client, msg)) = receiver.lock().unwrap().channel.1.try_recv() {
+                println!("got message");
+                
                 match msg {
                     Message::PING => {
                         if let Ok(_) = client.lock().unwrap().write(Message::PONG.serialize().as_slice()) {
@@ -36,7 +38,8 @@ impl MessageReceiver {
                     
                     _ => {
                         std::thread::spawn(move|| {
-                            client.lock().unwrap().machine_mut().handle_message(msg);
+                            let machine = client.lock().unwrap().machine();
+                            machine.lock().unwrap().handle_message(msg);
                         });
                     }
                 }
@@ -46,13 +49,8 @@ impl MessageReceiver {
         }
     }
     
-    // TODO: check if user is in game.. if user is disconnected
-    pub fn create_game(&mut self, username: &str, client: Weak<Mutex<Client>>) {
-        // client cannot be in game
-        // but username can
-        for game in self.games.iter() {
-            
-        }
+    pub fn games(&self) -> Arc<Mutex<Vec<Arc<Mutex<Game>>>>> {
+        self.games.clone()
     }
     
 }

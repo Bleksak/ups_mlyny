@@ -1,10 +1,11 @@
 use std::{net::TcpStream, os::unix::prelude::AsRawFd, hash::Hash};
 use std::io::{self, Read, Write};
 use std::ops::{Deref, DerefMut};
+use std::sync::{Mutex, Arc};
 
 use crate::machine::Machine;
 
-pub struct Client(TcpStream, Option<Machine>);
+pub struct Client(TcpStream, Option<Arc<Mutex<Machine>>>);
 
 impl Client {
     pub fn new(stream: TcpStream) -> Self {
@@ -12,15 +13,15 @@ impl Client {
     }
     
     pub fn set_machine(&mut self, machine: Machine) {
-        self.1 = Some(machine);
+        self.1 = Some(Arc::new(Mutex::new(machine)));
     }
     
     // pub fn machine(&self) -> &Machine {
     //     self.1.as_ref().unwrap()
     // }
     
-    pub fn machine_mut(&mut self) -> &mut Machine {
-        self.1.as_mut().unwrap()
+    pub fn machine(&mut self) -> Arc<Mutex<Machine>> {
+        self.1.as_mut().unwrap().clone()
     }
     
     pub fn write(&mut self, bytes: &[u8]) -> Result<(), io::Error> {

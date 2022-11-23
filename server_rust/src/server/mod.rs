@@ -2,7 +2,6 @@ pub mod message;
 pub mod receiver;
 pub mod client;
 
-
 use std::io;
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
@@ -40,7 +39,6 @@ impl Server {
     }
     
     fn process_request(&self, client: &mut Arc<Mutex<Client>>, data: &Vec<u8>) {
-        // TODO: maybe we need to parse multiple messages first
         if let Some(message) = Message::deserialize(data) {
             self.receiver_sender.send( (client.clone(), message) ).unwrap();
         }
