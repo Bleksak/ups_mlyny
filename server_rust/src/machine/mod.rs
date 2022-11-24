@@ -18,7 +18,7 @@ enum State {
     InGameMove,
     GameOver,
 }
-
+//smrdis hrutko
 impl Machine {
     pub fn new(client: Weak<Mutex<Client>>, receiver: Arc<Mutex<MessageReceiver>>)-> Self {
         Self { state: State::Init, client, receiver }

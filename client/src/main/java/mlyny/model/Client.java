@@ -193,11 +193,11 @@ public class Client extends Thread implements Closeable {
     }
 
     public void createGameRequest(String username) {
-        m_sender.pushMessage(new Message(m_socket.socket(), MessageType.PLAYER_INIT_CREATE, username.getBytes(StandardCharsets.US_ASCII)));
+        m_sender.pushMessage(new Message(m_socket.socket(), MessageType.PLAYER_INIT_CREATE, username.getBytes(StandardCharsets.UTF_8)));
     }
 
     public void joinGameRequest(String username) {
-
+        m_sender.pushMessage(new Message(m_socket.socket(), MessageType.PLAYER_INIT_JOIN, username.getBytes(StandardCharsets.UTF_8)));
     }
 
 }

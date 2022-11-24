@@ -14,8 +14,9 @@ public enum MessageType {
     OVER(8),
     PING(9),
     PONG(10),
-    PLAYER_INIT_USERNAME_INVALID(11),
-    PLAYER_INIT_USERNAME_USED(12);
+    PLAYER_JOIN_NOTIFY(11),
+    PLAYER_INIT_USERNAME_INVALID(12),
+    PLAYER_INIT_USERNAME_USED(13);
 
     private final int m_value;
     private static HashMap<Integer, MessageType> m_reverseMap = new HashMap<>();

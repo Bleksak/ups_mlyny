@@ -8,11 +8,16 @@ import javafx.scene.text.Text;
 import mlyny.Main;
 import mlyny.model.Client;
 import mlyny.model.Message;
+import mlyny.model.MessageType;
 
 public class CreateGameController implements INotifiableController {
 
     public void receivedMessage(Message message) {
-        
+        System.out.println(message.type());
+
+        if(message.type() == MessageType.PLAYER_JOIN_NOTIFY) {
+            Main.setRoot("CreateGameView");
+        }
     }
 
     private static final int MAX_PLAYERS = 2;
@@ -20,9 +25,6 @@ public class CreateGameController implements INotifiableController {
 
     @FXML
     private Scene self;
-
-    @FXML
-    private Text connectedPlayersText;
 
     @FXML
     private TextField inviteLinkTextField;
@@ -34,11 +36,5 @@ public class CreateGameController implements INotifiableController {
 
     @FXML
     void initialize() {
-        connectedPlayersText.setText(createTextField());
     }
-
-    private String createTextField() {
-        return String.format("%d/%d", currentPlayers, MAX_PLAYERS);
-    }
-
 }

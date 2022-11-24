@@ -29,7 +29,7 @@ impl MessageReceiver {
                 match msg {
                     Message::PING => {
                         if let Ok(_) = client.lock().unwrap().write(Message::PONG.serialize().as_slice()) {
-                            println!("sent pong!");
+                            // println!("sent pong!");
                         }
                     },
                     Message::PONG => {

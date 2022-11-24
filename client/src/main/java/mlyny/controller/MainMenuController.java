@@ -34,7 +34,7 @@ public class MainMenuController implements INotifiableController {
                 alert.showAndWait();
             }
 
-            if(message.type() == MessageType.OK) {
+            if(message.type() == MessageType.PLAYER_JOIN_NOTIFY) {
                 Main.setRoot("controller/CreateGameView");
             }
         });
@@ -76,6 +76,9 @@ public class MainMenuController implements INotifiableController {
 
     @FXML
     void joinGameClicked(MouseEvent event) {
+        try {
+            Client.getInstance().joinGameRequest(username.getText());
+        } catch(IOException ex) {}
     }
 
 
