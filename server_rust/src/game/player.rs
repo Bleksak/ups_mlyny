@@ -1,21 +1,21 @@
-use std::sync::{Mutex, Weak};
+use std::sync::Weak;
 
 use crate::server::client::Client;
 
-use super::Game;
+use super::color::Color;
 
 pub struct Player {
     username: Option<String>,
-    game: Weak<Mutex<Game>>,
-    client: Weak<Mutex<Client>>
+    client: Weak<Client>,
+    color: Color
 }
 
 impl Player {
-    pub fn new() -> Self {
+    pub fn new(color: Color) -> Self {
         Self {
             username: None,
-            game: Weak::new(),
-            client: Weak::new()
+            client: Weak::new(),
+            color
         }
     }
     
@@ -27,25 +27,22 @@ impl Player {
         self.username = Some(username);
     }
     
-    pub fn set_game(&mut self, game: Weak<Mutex<Game>>) {
-        self.game = game;
-    }
-    
-    pub fn bind(&mut self, client: Weak<Mutex<Client>>) {
+    pub fn bind(&mut self, client: Weak<Client>) {
         self.client = client;
     }
     
-    pub fn client(&self) -> &Weak<Mutex<Client>> {
+    pub fn client(&self) -> &Weak<Client> {
         &self.client
     }
     
-    pub fn game(&self) -> &Weak<Mutex<Game>> {
-        &self.game
+    pub fn color(&self) -> Color {
+        self.color
     }
+    
 }
 
-impl PartialEq for Player {
-    fn eq(&self, other: &Self) -> bool {
-        self.username == other.username
-    }
-}
+// impl PartialEq for Player {
+//     fn eq(&self, other: &Self) -> bool {
+//         self.username == other.username
+//     }
+// }

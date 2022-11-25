@@ -1,40 +1,32 @@
-use std::{net::TcpStream, os::unix::prelude::AsRawFd, hash::Hash};
+use std::{net::TcpStream, os::unix::prelude::AsRawFd};
 use std::io::{self, Read, Write};
 use std::ops::{Deref, DerefMut};
-use std::sync::{Mutex, Arc};
+use std::sync::Mutex;
 
 use crate::machine::Machine;
 
-pub struct Client(TcpStream, Option<Arc<Mutex<Machine>>>);
+pub struct Client(Mutex<TcpStream>, Mutex<Machine>);
 
 impl Client {
     pub fn new(stream: TcpStream) -> Self {
-        Self (stream, None)
+        Self (Mutex::new(stream), Mutex::new(Machine::new()))
     }
     
-    pub fn set_machine(&mut self, machine: Machine) {
-        self.1 = Some(Arc::new(Mutex::new(machine)));
+    pub fn machine(&self) -> &Mutex<Machine> {
+        &self.1
     }
     
-    // pub fn machine(&self) -> &Machine {
-    //     self.1.as_ref().unwrap()
-    // }
-    
-    pub fn machine(&mut self) -> Arc<Mutex<Machine>> {
-        self.1.as_mut().unwrap().clone()
+    pub fn write(&self, bytes: &[u8]) -> Result<(), io::Error> {
+        self.lock().unwrap().write_all(bytes)
     }
     
-    pub fn write(&mut self, bytes: &[u8]) -> Result<(), io::Error> {
-        self.write_all(bytes)
-    }
-    
-    pub fn read_all(&mut self) -> Option<Vec<u8>>{
+    pub fn read_all(&self) -> Option<Vec<u8>>{
         let mut data : Vec<u8> = Vec::with_capacity(512);
         data.resize(512, 0);
         
         let mut read_bytes = 0;
         
-        let read = self.read(&mut data[..]);
+        let read = self.lock().unwrap().read(&mut data[..]);
         
         if let Err(err) = read {
             match err.kind() {
@@ -50,7 +42,7 @@ impl Client {
         
         loop {
             data.resize(read_bytes + 512, 0);
-            let read = self.read(&mut data[read_bytes..read_bytes+512]);
+            let read = self.lock().unwrap().read(&mut data[read_bytes..read_bytes+512]);
             
             if let Err(err) = read {
                 match err.kind() {
@@ -76,7 +68,7 @@ impl Client {
     
     #[cfg(target_os="linux")]
     pub fn sock_fd(&self) -> i32 {
-        self.as_raw_fd()
+        self.lock().unwrap().as_raw_fd()
     }
     
     #[cfg(target_os="windows")]
@@ -86,7 +78,7 @@ impl Client {
 }
 
 impl Deref for Client {
-    type Target = TcpStream;
+    type Target = Mutex<TcpStream>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -99,40 +91,9 @@ impl DerefMut for Client {
     }
 }
 
-impl Clone for Client {
-    fn clone(&self) -> Self {
-        Self::new(self.try_clone().unwrap())
-    }
-}
-
-#[cfg(target_os="linux")]
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
-        self.as_raw_fd() == other.as_raw_fd()
+        // TODO: this may be a dead lock on a match
+        self.lock().unwrap().as_raw_fd() == other.lock().unwrap().as_raw_fd()
     }
 }
-
-#[cfg(target_os="linux")]
-impl Hash for Client {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_i32(self.as_raw_fd());
-        state.finish();
-    }
-}
-
-#[cfg(target_os="windows")]
-impl PartialEq for Client {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_raw_socket() == other.as_raw_socket()
-    }
-}
-
-#[cfg(target_os="windows")]
-impl Hash for Client {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_u64(self.as_raw_socket());
-        state.finish();
-    }
-}
-
-impl Eq for Client {}

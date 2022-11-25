@@ -1,56 +1,40 @@
 pub mod message;
 pub mod receiver;
 pub mod client;
+pub mod sender;
 
 use std::io;
 use std::net::TcpListener;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use crate::machine::Machine;
 use crate::server::message::Message;
 
 use self::client::Client;
 use self::receiver::MessageReceiver;
+// use self::sender::MessageSender;
 
 pub struct Server {
     socket: TcpListener,
-    receiver: Arc<Mutex<MessageReceiver>>,
-    clients: Vec<Arc<Mutex<Client>>>,
+    clients: Vec<Arc<Client>>,
     client_channel: (Sender<Client>, Receiver<Client>),
-    receiver_sender: Sender<(Arc<Mutex<Client>>, Message)>,
+    recv_channel: Sender<(Arc<Client>, Message)>,
+    // send_channel: Sender<(Arc<Client>, Message)>,
 }
 
 impl Server {
-    pub fn new(port: u16, receiver: MessageReceiver) -> Result<Self, io::Error> {
-        if port == 0 {
-            Err(io::Error::new(io::ErrorKind::Other, "Port 0 is not allowed!"))
-        } else {
-            let sender = receiver.sender();
-            
-            Ok(Self {
-                socket: TcpListener::bind(format!("127.0.0.1:{}", port))?,
-                receiver: Arc::new(Mutex::new(receiver)),
-                clients: vec![],
-                client_channel: mpsc::channel(),
-                receiver_sender: sender,
-            })
-        }
-    }
-    
-    fn process_request(&self, client: &mut Arc<Mutex<Client>>, data: &Vec<u8>) {
+    fn process_request(&self, client: Arc<Client>, data: &Vec<u8>) {
         if let Some(message) = Message::deserialize(data) {
-            self.receiver_sender.send( (client.clone(), message) ).unwrap();
+            self.recv_channel.send( (client.clone(), message) ).unwrap();
         }
     }
     
     fn run(mut self) {
         loop {
             if let Ok(client) = self.client_channel.1.try_recv() {
-                let client = Arc::new(Mutex::new(client));
                 println!("Got new client!");
+                let client = Arc::new(client);
                 client.lock().unwrap().set_nonblocking(true).expect("Failed to set client nonblocking");
-                client.lock().unwrap().set_machine(Machine::new(Arc::downgrade(&client), self.receiver.clone()));
                 self.clients.push(client);
             }
             
@@ -58,7 +42,7 @@ impl Server {
             
             let mut data_vec  = Vec::new();
             for (index, client) in self.clients.iter_mut().enumerate() {
-                if let Some(data) = client.lock().unwrap().read_all() {
+                if let Some(data) = client.read_all() {
                     if data.len() == 0 {
                         disconnect.push(index);
                     } else {
@@ -67,8 +51,8 @@ impl Server {
                 }
             }
             
-            for (mut client, data) in data_vec {
-                self.process_request(&mut client, &data);
+            for (client, data) in data_vec {
+                self.process_request(client, &data);
             }
             
             if disconnect.len() == 1 {
@@ -84,17 +68,36 @@ impl Server {
         }
     }
     
-    pub fn start(self) {
-        self.socket.set_nonblocking(true).unwrap();
+    pub fn start(port: u16) -> Result<(), io::Error> {
+        if port == 0 {
+            return Err(io::Error::new(io::ErrorKind::Other, "Port 0 is not allowed!"));
+        }
         
-        let socket = self.socket.try_clone().unwrap();
-        let tx = self.client_channel.0.clone();
+        // let send_channel = mpsc::channel();
+        let recv_channel = mpsc::channel();
         
-        let recv = self.receiver.clone();
+        let server = Server {
+            socket: TcpListener::bind(format!("127.0.0.1:{}", port))?,
+            clients: vec![],
+            client_channel: mpsc::channel(),
+            recv_channel: recv_channel.0,
+            // send_channel: send_channel.0,
+        };
+        
+        server.socket.set_nonblocking(true).unwrap();
+        let tx = server.client_channel.0.clone();        
+        let socket = server.socket.try_clone()?;
         
         let receiver = std::thread::spawn(move|| {
-            MessageReceiver::run(recv);
+            MessageReceiver::new().run(recv_channel.1);
+            // self.receiver.run(&self.recv_channel.1);
         });
+        
+        // TODO: we are not using this yet, but probably want to start
+        // let sender = std::thread::spawn(move|| {
+        //     MessageSender::new().run(send_channel.1);
+            // sendv.run();
+        // });
         
         let acceptor = std::thread::spawn(move || {
             for client in socket.incoming() {
@@ -105,11 +108,14 @@ impl Server {
         });
         
         let thread = std::thread::spawn(move|| {
-            self.run();
+            server.run();
         });
         
+        // sender.join().unwrap();
         receiver.join().unwrap();
         thread.join().unwrap();
         acceptor.join().unwrap();
+        
+        Ok(())
     }
 }
