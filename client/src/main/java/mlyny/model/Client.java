@@ -9,7 +9,6 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -32,6 +31,7 @@ public class Client extends Thread implements Closeable {
     private static Client m_instance;
 
     private Client(String address, int port) throws IOException {
+        setDaemon(true);
         m_address = address;
         m_port = port;
         m_selector = Selector.open();
@@ -74,7 +74,6 @@ public class Client extends Thread implements Closeable {
     }
     
     public void parseMessages() throws IOException {
-        System.out.println("parsing messages!");
 
         ByteBuffer bbuffer = ByteBuffer.allocate(8192);
         List<Byte> byteList = new ArrayList<Byte>();
@@ -86,7 +85,6 @@ public class Client extends Thread implements Closeable {
             int read = m_socket.read(bbuffer);
 
             readBytes += read;
-            System.out.println(read + " read");
 
             if(read <= 0) {
                 break;
@@ -98,8 +96,6 @@ public class Client extends Thread implements Closeable {
             }
         }
 
-        System.out.println(readBytes + " bytes read");
-        
         if(readBytes <= 0) {
             // server off
             m_socket.close();
@@ -117,9 +113,6 @@ public class Client extends Thread implements Closeable {
         int messageStart = 0;
         final int msg_offset = 2 * Integer.BYTES;
 
-        // System.out.println(messageStart + Integer.BYTES);
-        // System.out.println("is less than");
-        // System.out.println(bytes.length);
         ByteBuffer buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart, messageStart + Integer.BYTES));
         int messageLength = buffer.getInt();
         buffer = ByteBuffer.wrap(Arrays.copyOfRange(bytes, messageStart + Integer.BYTES, messageStart + msg_offset));
@@ -133,7 +126,7 @@ public class Client extends Thread implements Closeable {
 
         MessageType messageType = MessageType.valueOf(messageTypeInt);
 
-        byte[] messageData = messageLength - msg_offset > 0 ? Arrays.copyOfRange(bytes, msg_offset, messageLength - msg_offset) : null;
+        byte[] messageData = messageLength - msg_offset > 0 ? Arrays.copyOfRange(bytes, msg_offset, messageLength) : null;
         m_receiver.pushMessage(new Message(m_socket.socket(), messageType, messageData));
 
         messageStart += messageLength;
@@ -198,6 +191,12 @@ public class Client extends Thread implements Closeable {
 
     public void joinGameRequest(String username) {
         m_sender.pushMessage(new Message(m_socket.socket(), MessageType.PLAYER_INIT_JOIN, username.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    public void put(int index) {
+        ByteBuffer buf = ByteBuffer.allocate(Integer.BYTES);
+        buf.putInt(index);
+        m_sender.pushMessage(new Message(m_socket.socket(), MessageType.PLAYER_PUT, buf.array()));
     }
 
 }

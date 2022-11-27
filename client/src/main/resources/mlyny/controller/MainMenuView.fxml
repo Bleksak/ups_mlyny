@@ -8,11 +8,11 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.VBox?>
 
-<AnchorPane prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="mlyny.controller.MainMenuController">
+<AnchorPane prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="mlyny.controller.MainMenuController">
    <VBox alignment="CENTER" layoutX="336.0" layoutY="200.0" prefHeight="200.0" prefWidth="128.0" spacing="10.0" AnchorPane.bottomAnchor="200.0" AnchorPane.leftAnchor="336.0" AnchorPane.rightAnchor="336.0" AnchorPane.topAnchor="200.0">
-      <Button mnemonicParsing="false" onMouseClicked="#createGameClicked" prefHeight="50.0" prefWidth="161.0" text="Create a game" />
-      <Button mnemonicParsing="false" onMouseClicked="#joinGameClicked" prefHeight="50.0" prefWidth="262.0" text="Join a game" />
-      <Button mnemonicParsing="false" onMouseClicked="#quitClicked" prefHeight="50.0" prefWidth="204.0" text="Quit" />
+      <Button mnemonicParsing="false" onAction="#createGameClicked" prefHeight="50.0" prefWidth="161.0" text="Create a game" />
+      <Button mnemonicParsing="false" onAction="#joinGameClicked" prefHeight="50.0" prefWidth="262.0" text="Join a game" />
+      <Button mnemonicParsing="false" onAction="#quitClicked" prefHeight="50.0" prefWidth="204.0" text="Quit" />
    </VBox>
    <TextField fx:id="username" layoutX="315.0" layoutY="127.0" />
    <Label layoutX="367.0" layoutY="105.0" text="Username" />

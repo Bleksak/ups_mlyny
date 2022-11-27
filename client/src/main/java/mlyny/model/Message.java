@@ -10,6 +10,7 @@ public record Message(Socket socket, MessageType type, byte[] data) {
         int type_int = type.value();
 
         int length = 2 * Integer.BYTES + dataLength;
+        System.out.println("message length: " + length);
 
         byte[] buf = new byte[length];
         ByteBuffer intBuffer = ByteBuffer.allocate(Integer.BYTES);

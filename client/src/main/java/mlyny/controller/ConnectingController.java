@@ -91,7 +91,6 @@ public class ConnectingController extends Thread implements INotifiableControlle
 
         client.stopThread();
         start = System.currentTimeMillis();
-        System.out.println("trying connection");
 
         try {
             while(!client.connect()) {
@@ -112,8 +111,6 @@ public class ConnectingController extends Thread implements INotifiableControlle
         }
 
         connectionCounter += 1;
-
-        System.out.println("starting client");
 
         PingSpammer ctrl = new PingSpammer(client);
         ctrl.setDaemon(true);

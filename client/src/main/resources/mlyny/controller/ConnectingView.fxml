@@ -6,7 +6,7 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="mlyny.controller.ConnectingController">
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="mlyny.controller.ConnectingController">
    <children>
       <ProgressIndicator fx:id="spinner" layoutX="265.0" layoutY="171.0" minHeight="-Infinity" minWidth="-Infinity" prefHeight="258.0" prefWidth="270.0" />
       <Button layoutX="344.0" layoutY="482.0" mnemonicParsing="false" onAction="#disconnect" prefHeight="35.0" prefWidth="112.0" text="Cancel" />

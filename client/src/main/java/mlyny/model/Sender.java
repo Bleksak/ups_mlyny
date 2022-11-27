@@ -19,9 +19,10 @@ public class Sender extends Thread {
     public void run() {
         while(true) {
             while(!m_queue.isEmpty() && m_client.running()) {
-                System.out.println("sending message");
+                Message message = m_queue.remove();
+                System.out.println("sending message: " + message.type().name());
                 try {
-                    m_client.sendMessage(m_queue.remove());
+                    m_client.sendMessage(message);
                 } catch (IOException e) {
                     System.out.println("failed to send a messsage");
                 }

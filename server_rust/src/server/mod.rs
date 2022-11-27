@@ -1,30 +1,31 @@
 pub mod message;
 pub mod receiver;
 pub mod client;
-pub mod sender;
 
 use std::io;
 use std::net::TcpListener;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::thread::sleep;
 
 use crate::server::message::Message;
 
 use self::client::Client;
 use self::receiver::MessageReceiver;
-// use self::sender::MessageSender;
 
 pub struct Server {
     socket: TcpListener,
     clients: Vec<Arc<Client>>,
     client_channel: (Sender<Client>, Receiver<Client>),
     recv_channel: Sender<(Arc<Client>, Message)>,
-    // send_channel: Sender<(Arc<Client>, Message)>,
 }
 
 impl Server {
     fn process_request(&self, client: Arc<Client>, data: &Vec<u8>) {
+        println!("Got bytes: {}", data.len());
+        
         if let Some(message) = Message::deserialize(data) {
+            println!("{:?}", message);
             self.recv_channel.send( (client.clone(), message) ).unwrap();
         }
     }
@@ -57,6 +58,7 @@ impl Server {
             
             if disconnect.len() == 1 {
                 self.clients.swap_remove(disconnect[0]);
+                println!("disconnecting")
             } else {
                 for delete in disconnect.iter().rev() {
                     println!("disconnecting!");
@@ -73,7 +75,6 @@ impl Server {
             return Err(io::Error::new(io::ErrorKind::Other, "Port 0 is not allowed!"));
         }
         
-        // let send_channel = mpsc::channel();
         let recv_channel = mpsc::channel();
         
         let server = Server {
@@ -81,7 +82,6 @@ impl Server {
             clients: vec![],
             client_channel: mpsc::channel(),
             recv_channel: recv_channel.0,
-            // send_channel: send_channel.0,
         };
         
         server.socket.set_nonblocking(true).unwrap();
@@ -90,14 +90,7 @@ impl Server {
         
         let receiver = std::thread::spawn(move|| {
             MessageReceiver::new().run(recv_channel.1);
-            // self.receiver.run(&self.recv_channel.1);
         });
-        
-        // TODO: we are not using this yet, but probably want to start
-        // let sender = std::thread::spawn(move|| {
-        //     MessageSender::new().run(send_channel.1);
-            // sendv.run();
-        // });
         
         let acceptor = std::thread::spawn(move || {
             for client in socket.incoming() {
@@ -111,7 +104,6 @@ impl Server {
             server.run();
         });
         
-        // sender.join().unwrap();
         receiver.join().unwrap();
         thread.join().unwrap();
         acceptor.join().unwrap();

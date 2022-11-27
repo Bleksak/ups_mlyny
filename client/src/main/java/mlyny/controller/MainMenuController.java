@@ -3,11 +3,11 @@ package mlyny.controller;
 import java.io.IOException;
 
 import javafx.application.Platform;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Alert.AlertType;
-import javafx.scene.input.MouseEvent;
 import mlyny.Main;
 import mlyny.model.Client;
 import mlyny.model.Message;
@@ -64,7 +64,7 @@ public class MainMenuController implements INotifiableController {
     }
 
     @FXML
-    void createGameClicked(MouseEvent event) {
+    void createGameClicked(ActionEvent event) {
         if(!usernameValid()) {
             return;
         }
@@ -75,7 +75,7 @@ public class MainMenuController implements INotifiableController {
     }
 
     @FXML
-    void joinGameClicked(MouseEvent event) {
+    void joinGameClicked(ActionEvent event) {
         try {
             Client.getInstance().joinGameRequest(username.getText());
         } catch(IOException ex) {}
@@ -83,7 +83,7 @@ public class MainMenuController implements INotifiableController {
 
 
     @FXML
-    void quitClicked(MouseEvent event) {
+    void quitClicked(ActionEvent event) {
         Main.exit();
     }
 

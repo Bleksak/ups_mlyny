@@ -1,13 +1,18 @@
-use std::sync::Weak;
+use std::sync::{Arc, Weak};
 
-use crate::server::client::Client;
+use crate::{server::client::Client, machine::Machine};
 
-use super::color::Color;
+use super::{color::Color, Game};
 
+#[derive(Debug)]
 pub struct Player {
     username: Option<String>,
     client: Weak<Client>,
-    color: Color
+    color: Color,
+    inventory_cnt: usize,
+    board_cnt: usize,
+    machine: Arc<Machine>,
+    game: Weak<Game>
 }
 
 impl Player {
@@ -15,8 +20,23 @@ impl Player {
         Self {
             username: None,
             client: Weak::new(),
-            color
+            color,
+            inventory_cnt: 9,
+            board_cnt: 0,
+            machine: Arc::new(Machine::new()),
+            game: Weak::new(),
         }
+    }
+    
+    pub fn machine(&self) -> Arc<Machine> {
+        self.machine.clone()
+    }
+    
+    pub fn game(&self) -> &Weak<Game> {
+        &self.game
+    }
+    pub fn set_game(&mut self, game: Weak<Game>) {
+        self.game = game;
     }
     
     pub fn name(&self) -> &Option<String> {
@@ -31,18 +51,33 @@ impl Player {
         self.client = client;
     }
     
-    pub fn client(&self) -> &Weak<Client> {
-        &self.client
+    pub fn client(&self) -> Weak<Client> {
+        self.client.clone()
     }
     
     pub fn color(&self) -> Color {
         self.color
     }
     
+    pub fn put(&mut self) -> bool {
+        if self.inventory_cnt <= 0 {
+            return false;
+        }
+        
+        self.board_cnt += 1;
+        self.inventory_cnt -= 1;
+        
+        return true;
+    }
+    
+    pub fn take(&mut self) -> bool {
+        if self.board_cnt <= 0 {
+            return false;
+        }
+        
+        self.board_cnt -= 1;
+        
+        return true;
+    }
+    
 }
-
-// impl PartialEq for Player {
-//     fn eq(&self, other: &Self) -> bool {
-//         self.username == other.username
-//     }
-// }

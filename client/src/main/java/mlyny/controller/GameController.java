@@ -1,21 +1,28 @@
 package mlyny.controller;
 
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.shape.Circle;
+import mlyny.Main;
+import mlyny.model.Client;
 
+import java.io.IOException;
 import java.util.List;
 
 public class GameController implements INotifiableController {
 
-    private int lastSelectedIndex = -1;
-
     @FXML
     private List<Circle> stoneList;
 
+    public void exitGame(ActionEvent event) {
+        Main.exit();
+    }
+
     public void placeStone(MouseEvent mouseEvent) {
         MouseButton btn = mouseEvent.getButton();
+        System.out.println("clicked");
 
         int index = stoneList.indexOf(mouseEvent.getTarget());
 
@@ -29,11 +36,14 @@ public class GameController implements INotifiableController {
     }
 
     private void placePrimaryBtn(int index) {
-//        TODO: move
+        try {
+            Client.getInstance().put(index);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void placeSecondaryBtn(int index) {
-//        TODO: place
 
     }
 }

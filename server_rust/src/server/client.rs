@@ -3,17 +3,13 @@ use std::io::{self, Read, Write};
 use std::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 
-use crate::machine::Machine;
 
-pub struct Client(Mutex<TcpStream>, Mutex<Machine>);
+#[derive(Debug)]
+pub struct Client(Mutex<TcpStream>);
 
 impl Client {
     pub fn new(stream: TcpStream) -> Self {
-        Self (Mutex::new(stream), Mutex::new(Machine::new()))
-    }
-    
-    pub fn machine(&self) -> &Mutex<Machine> {
-        &self.1
+        Self (Mutex::new(stream))
     }
     
     pub fn write(&self, bytes: &[u8]) -> Result<(), io::Error> {
@@ -94,6 +90,6 @@ impl DerefMut for Client {
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
         // TODO: this may be a dead lock on a match
-        self.lock().unwrap().as_raw_fd() == other.lock().unwrap().as_raw_fd()
+        self.sock_fd() == other.sock_fd()
     }
 }
