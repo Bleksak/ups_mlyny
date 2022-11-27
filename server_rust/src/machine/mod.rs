@@ -1,7 +1,7 @@
 use std::sync::{Arc, Weak, Mutex};
 
 use crate::server::{message::Message, client::Client, receiver::MessageReceiver};
-use crate::game::{Game, player::Player};
+use crate::game::{self, Game, player::Player};
 
 #[derive(Debug)]
 pub struct Machine {
@@ -40,7 +40,7 @@ impl Machine {
         Self { state: Mutex::new(State::InLobby) }
     }
     
-    pub fn handle_message(&self, message: Message, receiver: &MessageReceiver, player: Arc<Mutex<Player>>) {
+    pub fn handle_message(&self, message: Message, receiver: &MessageReceiver, player: Arc<Player>) {
         println!("current state: {:?}", self.state);
         let state = self.state.lock().unwrap().clone();
         
@@ -71,7 +71,7 @@ impl Machine {
         }
     }
     
-    fn handle_init(&self, message: Message, receiver: &MessageReceiver, player: Arc<Mutex<Player>>) {
+    fn handle_init(&self, message: Message, receiver: &MessageReceiver, player: Arc<Player>) {
         match message {
             // check if client is connected with player
             // Message::Create(username) => {
@@ -98,26 +98,48 @@ impl Machine {
     }
     
     #[allow(unused_variables)]
-    fn handle_in_lobby(&self, message: Message, receiver: &MessageReceiver, player: Arc<Mutex<Player>>) {
+    fn handle_in_lobby(&self, message: Message, receiver: &MessageReceiver, player: Arc<Player>) {
         // ignore everything
     }
     
-    fn handle_in_game_put(&self, message: Message, receiver: &MessageReceiver, player: Arc<Mutex<Player>>) {
-        if let Message::Put(pos) = message {
+    fn handle_in_game_put(&self, message: Message, receiver: &MessageReceiver, player: Arc<Player>) {
+        if let (Message::Put(pos), Some(game)) = (message.clone(), player.game().upgrade()) {
+            match game.put(player.clone(), pos) {
+                Ok(opponent) => {
+                    if let Some(opponent) = opponent.upgrade() {
+                        if let Ok(_) = opponent.write(&message.serialize()) {
+                            println!("opponent notified");
+                        }
+                    }
+                    
+                    if let Some(client) = player.client().upgrade() {
+                        if let Ok(_) = client.write(&Message::Mok.serialize()) {
+                            println!("clicker notified :D");
+                        }
+                    }
+                },
+                Err(err) => {
+                    if let (Some(msg), Some(client))  = (err.to_string(), player.client().upgrade())  {
+                        if let Ok(_) = client.write(&Message::Nok(Some(msg)).serialize()) {
+                            println!("sent err to client");
+                        }
+                    }
+                }
+            }
         }
     }
     
-    fn handle_in_game_take(&self, message: Message, receiver: &MessageReceiver, player: Arc<Mutex<Player>>) {
+    fn handle_in_game_take(&self, message: Message, receiver: &MessageReceiver, player: Arc<Player>) {
         if let Message::Take(pos) = message {
         }
     }
     
-    fn handle_in_game_move(&self, message: Message, receiver: &MessageReceiver, client: Arc<Mutex<Player>>) {
+    fn handle_in_game_move(&self, message: Message, receiver: &MessageReceiver, client: Arc<Player>) {
         if let Message::Move(from, to) = message {
         }
     }
     
-    fn handle_game_over(&self, message: Message, receiver: &MessageReceiver, client: Arc<Mutex<Player>>) {
+    fn handle_game_over(&self, message: Message, receiver: &MessageReceiver, client: Arc<Player>) {
         // TODO: add message: game_over_disconnect
         // delete game from receiver
         // that should delete players as well as they are stored as weak refs

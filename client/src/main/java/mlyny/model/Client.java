@@ -126,7 +126,8 @@ public class Client extends Thread implements Closeable {
 
         MessageType messageType = MessageType.valueOf(messageTypeInt);
 
-        byte[] messageData = messageLength - msg_offset > 0 ? Arrays.copyOfRange(bytes, msg_offset, messageLength) : null;
+        byte[] messageData = messageLength - msg_offset > 0 ? Arrays.copyOfRange(bytes, msg_offset, messageLength) : new byte[0];
+        System.out.println("data length: " + messageData.length);
         m_receiver.pushMessage(new Message(m_socket.socket(), messageType, messageData));
 
         messageStart += messageLength;

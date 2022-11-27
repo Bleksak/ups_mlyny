@@ -1,4 +1,4 @@
-use crate::machine::State;
+use crate::{machine::State, game::color::Color};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -13,7 +13,7 @@ pub enum Message {
     Over,
     Ping,
     Pong,
-    PlayerJoined(State),
+    PlayerJoined(State, Color, Vec<u8>),
 }
 
 impl Message {
@@ -82,10 +82,15 @@ impl Message {
                 v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(10).to_vec());
             },
-            Message::PlayerJoined(state) => {
-                v.append(&mut u32::to_be_bytes(3*u32_size).to_vec());
+            Message::PlayerJoined(state, color, mut board) => {
+                let size = 1 + board.len() as u32 + 3 * u32_size;
+                let color = color.serialize();
+                
+                v.append(&mut u32::to_be_bytes(size).to_vec());
                 v.append(&mut u32::to_be_bytes(11).to_vec());
                 v.append(&mut u32::to_be_bytes(state as u32).to_vec());
+                v.append(&mut u8::to_be_bytes(color).to_vec());
+                v.append(&mut board);
             }
         }
         
@@ -123,7 +128,7 @@ impl Message {
             8 => Some(Self::Over),
             9 => Some(Self::Ping),
             10 => Some(Self::Pong),
-            11 => Some(Self::PlayerJoined( u32::from_be_bytes(data[0..u32_size].try_into().ok()?).try_into().ok()?)),
+            // 11 => Some(Self::PlayerJoined( u32::from_be_bytes(data[0..u32_size].try_into().ok()?).try_into().ok()?)),
             _ => None
         }
     }

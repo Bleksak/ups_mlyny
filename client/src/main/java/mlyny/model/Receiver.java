@@ -1,10 +1,12 @@
 package mlyny.model;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javafx.application.Platform;
 import mlyny.Main;
+import mlyny.controller.GameController;
 
 public class Receiver extends Thread {
 
@@ -82,9 +84,13 @@ public class Receiver extends Thread {
                         Main.setRoot("controller/CreateGameView");
                     });
                 } else {
-                    Platform.runLater( () -> {
-                        Main.setRoot("controller/GameView");
-                    });
+                    LColor color = LColor.valueOf(msg.data()[Integer.BYTES]);
+                    Board  board = new Board(Arrays.copyOfRange(msg.data(), 1 + Integer.BYTES, msg.data().length));
+                    Main.setRoot("controller/GameView");
+                    while(!(Main.getController() instanceof GameController)) {}
+                    GameController ctrl = (GameController) Main.getController();
+                    ctrl.setBoard(board);
+                    ctrl.setColor(color);
                 }
 
                 m_state = s;
@@ -100,8 +106,15 @@ public class Receiver extends Thread {
     private void lobby(Message msg) {
         if(msg.type() == MessageType.PLAYER_JOIN_NOTIFY) {
             System.out.println("go to game?");
+
+            LColor color = LColor.valueOf(msg.data()[0]);
+            Board  board = new Board(Arrays.copyOfRange(msg.data(), 1, msg.data().length));
+
             Platform.runLater( () -> {
                 Main.setRoot("controller/GameView");
+                GameController ctrl = (GameController) Main.getController();
+                ctrl.setBoard(board);
+                ctrl.setColor(color);
             });
 
             m_state = MState.GAME_PUT;
@@ -134,7 +147,8 @@ public class Receiver extends Thread {
 
     private void put(Message msg) {
         if(msg.type() == MessageType.OK) {
-            
+            GameController ctrl = (GameController) Main.getController();
+            ctrl.confirmLastOperation();
         }
 
         if(msg.type() == MessageType.NOK) {

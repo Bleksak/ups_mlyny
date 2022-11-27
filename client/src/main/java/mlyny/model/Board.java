@@ -2,7 +2,7 @@ package mlyny.model;
 
 import java.util.Objects;
 
-public record Board(int[] board) {
+public record Board(byte[] board) {
     private static final int BOARD_SIZE = 24;
 
     public Board {
@@ -12,7 +12,7 @@ public record Board(int[] board) {
         }
     }
 
-    public void setColor(int index, Color color) {
+    public void setColor(int index, LColor color) {
         board[index] = color.value;
     }
 }

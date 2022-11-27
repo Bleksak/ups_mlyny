@@ -1,7 +1,7 @@
 use crate::{server::{client::Client, message::Message, receiver::MessageReceiver}, game::color::Color, machine::State};
 
 use self::{player::Player, board::Board};
-use std::sync::{Mutex, Weak, RwLock, Arc};
+use std::sync::{Weak, RwLock, Arc};
 
 pub mod player;
 pub mod color;
@@ -10,7 +10,7 @@ pub mod board;
 #[derive(Debug)]
 pub struct Game {
     turn: RwLock<usize>,
-    players: [Arc<Mutex<Player>>; 2],
+    players: [Arc<Player>; 2],
     board: Board,
 }
 
@@ -40,29 +40,28 @@ impl Game {
     pub fn new() -> Arc<Self> {
         let s = Arc::new(Self {
             turn: RwLock::new(0),
-            players: [Arc::new(Mutex::new(Player::new(Color::Red))), Arc::new(Mutex::new(Player::new(Color::Blue)))],
+            players: [Arc::new(Player::new(Color::Red)), Arc::new(Player::new(Color::Blue))],
             board: Board::new(),
         });
         
         for p in s.players.iter() {
-            p.lock().unwrap().set_game(Arc::downgrade(&s));
+            p.set_game(Arc::downgrade(&s));
         }
         
         s
     }
     
     fn notify_join(&self) {
-        let count = self.players.iter().filter_map(|p| p.lock().unwrap().client().upgrade()).count();
+        let count = self.players.iter().filter_map(|p| p.client().upgrade()).count();
         
         for player in self.players.iter() {
-            let lock = player.lock().unwrap();
-            if lock.machine().state() == State::InLobby && count == 2 {
-                lock.machine().set_state(State::InGamePut);
+            if player.machine().state() == State::InLobby && count == 2 {
+                player.machine().set_state(State::InGamePut);
             }
                 
-            if let Some(client) = lock.client().upgrade() {
-                if let Ok(_) = client.write(&Message::PlayerJoined(lock.machine().state()).serialize()) {
-                    println!("player {} notified", lock.name().as_ref().unwrap());
+            if let Some(client) = player.client().upgrade() {
+                if let Ok(_) = client.write(&Message::PlayerJoined(player.machine().state(), player.color(), self.board.serialize()).serialize()) {
+                    println!("player {} notified", player.name().as_ref().unwrap());
                 }
             }
         }
@@ -72,13 +71,11 @@ impl Game {
         let mut val = None;
         
         for player in self.players.iter() {
-            let mut guard = player.lock().unwrap();
-            
-            if let Some(name) = guard.name() {
+            if let Some(name) = player.name() {
                 if name == username {
-                    if guard.client().upgrade().is_none() {
+                    if player.client().upgrade().is_none() {
                         println!("Connecting {}", username);
-                        guard.bind(client.clone());
+                        player.bind(client.clone());
                         println!("bound");
                         val = Some(());
                         break;
@@ -87,7 +84,6 @@ impl Game {
             }
         }
         
-        println!("notifying");
         if let Some(_) = val {
             self.notify_join();
         }
@@ -99,23 +95,22 @@ impl Game {
         let mut val = None;
         
         for player in self.players.iter() {
-            let mut guard = player.lock().unwrap();
-            
-            if guard.name().is_none() {
+            if player.name().is_none() {
                 if let Some(client) = client.upgrade() {
                     println!("Connecting {}", username);
-                    guard.set_name(username.to_string());
-                    guard.bind(Arc::downgrade(&client));
+                    player.set_name(username.to_string());
+                    player.bind(Arc::downgrade(&client));
+                    
                     let mut plock = receiver.players().lock().unwrap();
                     let entry = plock.entry(client.sock_fd());
                     entry.or_insert(Arc::downgrade(player));
+                    
                     val = Some(());
                     break;
                 }
             }
         };
         
-        println!("notifying");
         if let Some(_) = val {
             self.notify_join();
        }
@@ -125,7 +120,7 @@ impl Game {
     
     pub fn has_player(&self, username: &str) -> bool {
         for player in self.players.iter() {
-            if let Some(name) = player.lock().unwrap().name() {
+            if let Some(name) = player.name() {
                 if name == username {
                     return true;
                 }
@@ -135,67 +130,60 @@ impl Game {
         false
     }
     
-    fn get_player(&self, client: Weak<Client>) -> Option<(usize, Color)> {
-        self.players.iter().enumerate().find(|(_,player)| {
-            if let (Some(a), Some(b)) = (player.lock().unwrap().client().upgrade(), client.upgrade()) {
-                return a == b;
-            }
-            
-            false
-        }).map(|x| (x.0, x.1.lock().unwrap().color()))
-    }
-    
-    pub fn put(&self, client: Weak<Client>, pos: usize) -> Result<Weak<Client>, GameError> {
-        let (index, color) = self.get_player(client).ok_or(GameError::PlayerNotInGame)?;
+    pub fn put(&self, player: Arc<Player>, pos: usize) -> Result<Weak<Client>, GameError> {
+        let turn = *self.turn.read().unwrap();
+        let player_turn = self.players[turn].clone();
         
-        if index != *self.turn.read().unwrap() {
+        if player != player_turn {
             return Err(GameError::NotYourTurn);
         }
         
-        let opponent_index = (index + 1) % 2;
+        let opponent_index = (turn + 1) % 2;
         
-        self.board.put(pos, color)?;
+        self.board.put(pos, player.color())?;
         // Check for mill
         
         let mut turn = self.turn.write().unwrap();
         *turn = (*turn + 1) % 2;
         
-        Ok(self.players.get(opponent_index).unwrap().lock().unwrap().client().to_owned())
+        Ok(self.players.get(opponent_index).unwrap().client().to_owned())
     }
     
-    pub fn mmove(&self, client: Weak<Client>, pos: (usize, usize)) -> Result<Weak<Client>, GameError> {
-        let (index, color) = self.get_player(client).ok_or(GameError::PlayerNotInGame)?;
+    pub fn mmove(&self, player: Arc<Player>, pos: (usize, usize)) -> Result<Weak<Client>, GameError> {
+        let turn = *self.turn.read().unwrap();
+        let player_turn = self.players[turn].clone();
         
-        if index != *self.turn.read().unwrap() {
+        if player != player_turn {
             return Err(GameError::NotYourTurn);
         }
         
-        if color != self.board.get(pos.0)? || Color::Neutral != self.board.get(pos.1)? {
+        if player.color() != self.board.get(pos.0)? || Color::Neutral != self.board.get(pos.1)? {
             return Err(GameError::CannotMove);
         }
         
-        let opponent_index = (index + 1) % 2;
+        let opponent_index = (turn + 1) % 2;
         
         self.board.mmove(pos)?;
         
         let mut turn = self.turn.write().unwrap();
         *turn = (*turn + 1) % 2;
         
-        Ok(self.players.get(opponent_index).unwrap().lock().unwrap().client().clone())
+        Ok(self.players.get(opponent_index).unwrap().client().clone())
     }
     
-    pub fn take(&self, client: Weak<Client>, pos: usize) -> Result<Weak<Client>, GameError> {
-        let (index, _) = self.get_player(client).ok_or(GameError::PlayerNotInGame)?;
+    pub fn take(&self, player: Arc<Player>, pos: usize) -> Result<Weak<Client>, GameError> {
+        let turn = *self.turn.read().unwrap();
+        let player_turn = self.players[turn].clone();
         
-        if index != *self.turn.read().unwrap() {
+        if player != player_turn {
             return Err(GameError::NotYourTurn);
         }
         
-        let opponent_index = (index + 1) % 2;
+        let opponent_index = (turn + 1) % 2;
         let players_guard = &self.players;
         let opponent = players_guard.get(opponent_index).unwrap();
         
-        if self.board.get(pos)? != opponent.lock().unwrap().color() {
+        if self.board.get(pos)? != opponent.color() {
             return Err(GameError::InvalidField);
         }
         
@@ -204,6 +192,6 @@ impl Game {
         let mut turn = self.turn.write().unwrap();
         *turn = (*turn + 1) % 2;
         
-        Ok(opponent.lock().unwrap().client().clone())
+        Ok(opponent.client().clone())
     }
 }

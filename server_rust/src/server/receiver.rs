@@ -10,7 +10,7 @@ use crate::machine::Machine;
 
 pub struct MessageReceiver {
     games: Mutex<Vec<Arc<Game>>>,
-    players: Mutex<HashMap<i32, Weak<Mutex<Player>>>>,
+    players: Mutex<HashMap<i32, Weak<Player>>>,
 }
 
 impl MessageReceiver {
@@ -18,10 +18,10 @@ impl MessageReceiver {
         Self { games: Mutex::new(vec![]), players: Mutex::new(HashMap::new()) }
     }
     
-    fn find_player(&self, fd: i32) -> Option<Arc<Mutex<Player>>> {
+    fn find_player(&self, fd: i32) -> Option<Arc<Player>> {
         let mut lock = self.players.lock().unwrap();
         if let Some(player) = lock.get(&fd).and_then(|p| p.upgrade()) {
-            if player.lock().unwrap().client().upgrade().is_none() {
+            if player.client().upgrade().is_none() {
                 lock.remove(&fd);
                 return None;
             } else {
@@ -45,7 +45,7 @@ impl MessageReceiver {
                     _ => {
                         // 1. try to find player for given client
                         if let Some(player) = self.find_player(client.sock_fd()) {
-                            let machine = player.lock().unwrap().machine().clone();
+                            let machine = player.machine().clone();
                             machine.handle_message(msg, &self, player);
                         } else {
                             Machine::new_client_init(msg, &self, Arc::downgrade(&client));
@@ -62,7 +62,7 @@ impl MessageReceiver {
         &self.games
     }
     
-    pub fn players(&self) -> &Mutex<HashMap<i32, Weak<Mutex<Player>>>> {
+    pub fn players(&self) -> &Mutex<HashMap<i32, Weak<Player>>> {
         &self.players
     }
     

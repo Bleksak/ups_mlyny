@@ -43,9 +43,14 @@ impl Board {
         }
     }
     
+    pub fn serialize(&self) -> Vec<u8> {
+        self.board.lock().unwrap().iter().map(|col| col.serialize()).collect()
+    }
+    
     pub fn put(&self, index: usize, color: Color) -> Result<(), GameError> {
         let mut guard = self.board.lock().unwrap();
         let field = guard.get_mut(index).ok_or(GameError::BadPosition)?;
+        
         if *field != Color::Neutral {
             return Err(GameError::FieldTaken);
         }

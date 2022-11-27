@@ -6,7 +6,7 @@ pub enum Color {
 }
 
 impl Color {
-    pub fn serialize(&self) -> u32 {
+    pub fn serialize(&self) -> u8 {
         match self {
             Self::Neutral => 0,
             Self::Red => 1,
