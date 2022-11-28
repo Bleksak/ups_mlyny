@@ -1,4 +1,4 @@
-use std::{net::TcpStream, os::unix::prelude::AsRawFd};
+use std::net::TcpStream;
 use std::io::{self, Read, Write};
 use std::ops::{Deref, DerefMut};
 use std::sync::Mutex;
@@ -64,12 +64,14 @@ impl Client {
     
     #[cfg(target_os="linux")]
     pub fn sock_fd(&self) -> i32 {
+        use std::os::unix::prelude::AsRawFd;
         self.lock().unwrap().as_raw_fd()
     }
     
     #[cfg(target_os="windows")]
     pub fn sock_fd(&self) -> i32 {
-        self.as_raw_socket() as i32
+        use std::os::windows::prelude::AsRawSocket;
+        self.lock().unwrap().as_raw_socket() as i32
     }
 }
 

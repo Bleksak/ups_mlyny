@@ -65,7 +65,6 @@ public class Receiver extends Thread {
             try {
                 Thread.sleep(20);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
             }
         }
 
