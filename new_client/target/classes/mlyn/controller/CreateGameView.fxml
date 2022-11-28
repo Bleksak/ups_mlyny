@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ProgressIndicator?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.text.Text?>
+
+<AnchorPane minHeight="-Infinity" minWidth="-Infinity" prefHeight="600.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/19" xmlns:fx="http://javafx.com/fxml/1" fx:controller="mlyn.controller.CreateGameController">
+   <children>
+      <Text layoutX="339.0" layoutY="146.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Waiting for players" />
+      <ProgressIndicator layoutX="218.0" layoutY="196.0" minHeight="-Infinity" minWidth="-Infinity" prefHeight="239.0" prefWidth="365.0" />
+      <Button layoutX="379.0" layoutY="477.0" mnemonicParsing="false" onAction="#exitClick" text="Exit" />
+   </children>
+</AnchorPane>
