@@ -10,14 +10,15 @@ public enum MessageType {
     PLAYER_INIT_JOIN(3),
     READY(4),
     PLAYER_PUT(5),
-    PLAYER_MV(6),
-    PLAYER_TAKE(7),
+    PLAYER_TAKE(6),
+    PLAYER_MV(7),
     OVER(8),
     PING(9),
     PONG(10),
     PLAYER_JOIN_NOTIFY(11),
     PLAYER_INIT_USERNAME_INVALID(12),
-    PLAYER_INIT_USERNAME_USED(13);
+    PLAYER_INIT_USERNAME_USED(13),
+    GAME_STATE(14);
 
     private final int m_value;
     private static HashMap<Integer, MessageType> m_reverseMap = new HashMap<>();

@@ -5,10 +5,8 @@ import java.nio.charset.StandardCharsets;
 
 import javafx.application.Platform;
 import javafx.concurrent.Task;
-import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
-import javafx.stage.Stage;
 import mlyn.model.Message;
 import mlyn.model.MessageType;
 

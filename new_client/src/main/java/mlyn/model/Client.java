@@ -169,6 +169,7 @@ public class Client extends Thread {
     }
 
     public void send(Message msg) throws IOException {
+        System.out.println("sending msg: " + msg.type().name());
         os.write(msg.serialize());
     }
 

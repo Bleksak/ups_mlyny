@@ -26,8 +26,10 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.stage.WindowEvent;
 import mlyn.model.Client;
+import mlyn.model.Machine;
 import mlyn.model.Message;
 import mlyn.model.MessageType;
+import mlyn.model.Machine.State;
 
 class OpponentThread extends Thread {
 
@@ -38,20 +40,42 @@ class OpponentThread extends Thread {
         this.client = client;
         this.controller = controller;
     }
-
+// s krtki  
     public void run() {
         try {
             while(true) {
-                Message msg = client.getMessage(MessageType.PLAYER_PUT);
-                int index = ByteBuffer.wrap(msg.data()).getInt();
-                Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
-                controller.getCircle(index).setFill(opponentColor);
+                Message msg = client.getMessage(MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.GAME_STATE);
+                switch(msg.type()) {
+                    case PLAYER_PUT: {
+                        int index = ByteBuffer.wrap(msg.data()).getInt();
+                        Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
+                        controller.getCircle(index).setFill(opponentColor);
+                    } break;
+
+                    case PLAYER_TAKE: {
+                        System.out.println("take?");
+                        int index = ByteBuffer.wrap(msg.data()).getInt();
+                        // Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
+                        controller.getCircle(index).setFill(Color.BLACK);
+                    } break;
+
+                    case PLAYER_MV: {
+
+                    } break;
+
+                    case GAME_STATE: {
+                        if(msg.data().length > 0) {
+                            ByteBuffer buffer = ByteBuffer.wrap(msg.data());
+                            Machine.State newState = Machine.State.valueOf(buffer.getInt());
+                            System.out.println("new state: " + newState.name());
+                            client.getMachine().setState(newState);
+                        }
+                    } break;
+                }
             }
         } catch(InterruptedException ex) {
-            System.out.println("interrupting");
             Thread.currentThread().interrupt();
         }
-        System.out.println("end");
     }
 }
 
@@ -63,6 +87,7 @@ public class GameController extends BorderPane {
     private Client client;
     private ExecutorService service = Executors.newFixedThreadPool(2);
     private List<Circle> circles = new ArrayList<>();
+    private int prevIndex = -1;
 
     private static Line lineMaker(GridPane grid, int indexFrom, int indexTo) {
         double xFrom = ((Circle)grid.getChildren().get(indexFrom)).getCenterX();
@@ -174,10 +199,33 @@ public class GameController extends BorderPane {
         setCenter(vbox);
     }
 
-    public GameController(Client client, byte[] board) {
+    private int countColor(Color color) {
+        int count = 0;
+        for(Circle c : circles) {
+            if(c.getFill() == color) {
+                count += 1;
+            }
+        }
+
+        return count;
+    }
+
+    public GameController(Client client, ByteBuffer board) {
         this.client = client;
         this.service.execute(new OpponentThread(this, client));
         makeGUI();
+
+        int size = board.remaining();
+
+        for(int i = 0; i < size; ++i) {
+            byte b = board.get();
+            if(b == 0) {
+                continue;
+            }
+
+            Color c = b == 1 ? Color.RED : Color.BLUE;
+            circles.get(i).setFill(c);
+        }
     }
 
     public Circle getCircle(int index) { 
@@ -191,11 +239,45 @@ public class GameController extends BorderPane {
     }
 
     private void circleClicked(int index) {
+
+        Machine.State state = client.getMachine().getState();
+
+        if(state == Machine.State.GAME_MOVE_OPP || state == Machine.State.GAME_PUT_OPP || state == Machine.State.GAME_TAKE_OPP) {
+            return;
+        }
+
+        if(prevIndex == -1 && client.getMachine().getState() == Machine.State.GAME_MOVE) {
+            prevIndex = index;
+            return;
+        }
+
         Task<Message> task = new Task<Message>() {
             @Override
             protected Message call() throws Exception {
-                client.send(new Message(MessageType.PLAYER_PUT, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
-                return client.getMessage(MessageType.NOK, MessageType.OK);
+                switch(client.getMachine().getState()) {
+                    case GAME_MOVE: {
+                        System.out.println("move");
+                        client.send(new Message(MessageType.PLAYER_MV, ByteBuffer.allocate(2*Integer.BYTES).putInt(prevIndex).putInt(index).array()));
+                        prevIndex = -1;
+                        return client.getMessage(MessageType.NOK, MessageType.OK);
+                    }
+
+                    case GAME_PUT: {
+                        System.out.println("put");
+                        client.send(new Message(MessageType.PLAYER_PUT, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
+                        return client.getMessage(MessageType.NOK, MessageType.OK);
+                    }
+
+                    case GAME_TAKE: {
+                        System.out.println("take");
+                        client.send(new Message(MessageType.PLAYER_TAKE, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
+                        return client.getMessage(MessageType.NOK, MessageType.OK);
+                    }
+
+                    case GAME_OVER: {} break;
+                }
+
+                return null;
             }
         };
 
@@ -203,13 +285,14 @@ public class GameController extends BorderPane {
             Message msg = task.getValue();
             switch(msg.type()) {
                 case NOK: {
-
-
+                    // TODO: handle rejection
                 } break;
                 case OK: {
-
-                    System.out.println("setting color");
-                    circles.get(index).setFill(client.getColor());
+                    if(state == State.GAME_TAKE) {
+                        circles.get(index).setFill(Color.BLACK);
+                    } else {
+                        circles.get(index).setFill(client.getColor());
+                    }
 
                 } break;
             }

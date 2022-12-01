@@ -14,6 +14,8 @@ pub enum Message {
     Ping,
     Pong,
     PlayerJoined,
+    GameState(State),
+    Disconnect,
 }
 
 impl Message {
@@ -24,7 +26,7 @@ impl Message {
         
         match self {
             Message::Mok => {
-                v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
+                v.append(&mut u32::to_be_bytes(2 * u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(0).to_vec());
             },
             Message::Nok(value) => {
@@ -51,6 +53,8 @@ impl Message {
             Message::Ready(state, color, mut board) => {
                 let size = 1 + board.len() as u32 + 3 * u32_size;
                 let color = color.serialize();
+                
+                println!("sending: {:?}", state);
                 
                 v.append(&mut u32::to_be_bytes(size).to_vec());
                 v.append(&mut u32::to_be_bytes(4).to_vec());
@@ -91,7 +95,16 @@ impl Message {
             Message::PlayerJoined => {
                 v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(11).to_vec());
+            },
+            Message::Disconnect => {
+                v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
+                v.append(&mut u32::to_be_bytes(12).to_vec());
             }
+            Message::GameState(state) => {
+                v.append(&mut u32::to_be_bytes(3*u32_size).to_vec());
+                v.append(&mut u32::to_be_bytes(14).to_vec());
+                v.append(&mut u32::to_be_bytes(state as u32).to_vec());
+            },
         }
         
         println!("will send: {} bytes ", v.len());

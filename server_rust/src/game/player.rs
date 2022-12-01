@@ -48,10 +48,7 @@ impl Player {
     }
     
     pub fn bind(&self, client: Weak<Client>) {
-        println!("WHAT THE FUCKING SHIT");
-        println!("setting client");
         *self.client.lock().unwrap() = client;
-        println!("client set");
     }
     
     pub fn client(&self) -> Weak<Client> {
@@ -60,6 +57,14 @@ impl Player {
     
     pub fn color(&self) -> Color {
         self.color
+    }
+    
+    pub fn inventory(&self) -> usize {
+        *self.inventory_cnt.lock().unwrap()
+    }
+    
+    pub fn board(&self) -> usize {
+        *self.board_cnt.lock().unwrap()
     }
     
     pub fn put(&self) -> bool {

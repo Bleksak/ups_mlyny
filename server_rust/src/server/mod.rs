@@ -54,14 +54,12 @@ impl Server {
             }
             
             if disconnect.len() == 1 {
-                println!("disconnecting");
-                let c = self.clients.swap_remove(disconnect[0]);
-                println!("weak count: {} strong count: {}", Arc::weak_count(&c), Arc::strong_count(&c));
+                let client = self.clients.swap_remove(disconnect[0]);
+                self.recv_channel.send((client, Message::Disconnect)).unwrap();
             } else {
                 for delete in disconnect.iter().rev() {
-                    println!("disconnecting!");
-                    let c = self.clients.remove(*delete);
-                    println!("weak count: {} strong count: {}", Arc::weak_count(&c), Arc::strong_count(&c));
+                    let client = self.clients.remove(*delete);
+                    self.recv_channel.send((client, Message::Disconnect)).unwrap();
                 }
             }
             

@@ -41,8 +41,18 @@ impl MessageReceiver {
                             // println!("sent pong!");
                         }
                     },
+                    Message::Disconnect => {
+                        if let Some(player) = self.find_player(client.sock_fd()) {
+                            if let Some(game ) = player.game().upgrade() {
+                                game.notify_disconnect(client);
+                            }
+                        } else {
+                            // Machine::new_client_init(msg, &self, Arc::downgrade(&client));
+                        }
+                    },
                     
                     _ => {
+                        println!("got message: {:?}", msg);
                         // 1. try to find player for given client
                         if let Some(player) = self.find_player(client.sock_fd()) {
                             let machine = player.machine().clone();

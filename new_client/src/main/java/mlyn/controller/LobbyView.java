@@ -69,13 +69,12 @@ public class LobbyView extends BorderPane {
         ByteBuffer buffer = ByteBuffer.wrap(msg.data());
         Machine.State state = Machine.State.valueOf(buffer.getInt());
         Color color = buffer.get() == 1 ? Color.RED : Color.BLUE;
-        byte[] board = buffer.array();
 
         client.getMachine().setState(state);
         client.setColor(color);
 
         Platform.runLater(() -> {
-            Scene sc = new Scene(new GameController(client, board));
+            Scene sc = new Scene(new GameController(client, buffer));
             Stage stage = (Stage) this.getScene().getWindow();
             stage.setScene(sc);
         

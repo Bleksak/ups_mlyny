@@ -51,15 +51,26 @@ impl Game {
         s
     }
     
+    pub fn notify_disconnect(&self, client: Arc<Client>) {
+        for player in self.players.iter().filter_map(|player| player.client().upgrade()) {
+            if client == player {
+                continue;
+            }
+                
+            if let Ok(_) = player.write(&Message::Disconnect.serialize()) {
+                println!("disconnect notification sent");
+            }
+        }
+    }
+    
     fn notify_join(&self) {
         let count = self.players.iter().filter_map(|p| p.client().upgrade()).count();
         
+        if count == 2 {
+            self.players.get(0).unwrap().machine().set_state(State::InGamePut);
+            self.players.get(1).unwrap().machine().set_state(State::InGamePutOpponent);
+        }
         for player in self.players.iter() {
-            if player.machine().state() == State::InLobby && count == 2 {
-                player.machine().set_state(State::InGamePut);
-            }
-                
-                
             if let Some(client) = player.client().upgrade() {
                 let msg = if count == 2 { Message::Ready(player.machine().state(), player.color(), self.board.serialize()) } else { Message::PlayerJoined };
                 if let Ok(_) = client.write(&msg.serialize()) {
@@ -143,7 +154,7 @@ impl Game {
         None
     }
     
-    pub fn put(&self, player: Arc<Player>, pos: usize) -> Result<Weak<Client>, GameError> {
+    pub fn put(&self, player: Arc<Player>, pos: usize) -> Result<Arc<Player>, GameError> {
         let turn = *self.turn.read().unwrap();
         let player_turn = self.players[turn].clone();
         
@@ -155,17 +166,32 @@ impl Game {
         
         println!("putting!");
         self.board.put(pos, player.color())?;
+        player.put();
         // Check for mill
         
-        let mut turn = self.turn.write().unwrap();
-        *turn = (*turn + 1) % 2;
+        let opponent = self.players.get(opponent_index).unwrap();
         
-        println!("turn: {}", *turn);
+        if self.board.check_mill_vertical(pos, None) || self.board.check_mill_horizontal(pos, None) {
+            opponent.machine().set_state(State::InGameTakeOpponent);
+            player.machine().set_state(State::InGameTake);
+            println!("MILL FORMED, SETTING STATE");
+        } else {
+            let inv_count: usize = self.players.iter().map(|p| p.inventory()).sum();
+            if inv_count == 0 {
+                opponent.machine().set_state(State::InGameMove);
+                player.machine().set_state(State::InGameMoveOpponent);
+            } else {
+                opponent.machine().set_state(State::InGamePut);
+                player.machine().set_state(State::InGamePutOpponent);
+            }
+            let mut turn = self.turn.write().unwrap();
+            *turn = (*turn + 1) % 2;
+        }
         
-        Ok(self.players.get(opponent_index).unwrap().client().clone())
+        Ok(opponent.clone())
     }
     
-    pub fn mmove(&self, player: Arc<Player>, pos: (usize, usize)) -> Result<Weak<Client>, GameError> {
+    pub fn mmove(&self, player: Arc<Player>, pos: (usize, usize)) -> Result<Arc<Player>, GameError> {
         let turn = *self.turn.read().unwrap();
         let player_turn = self.players[turn].clone();
         
@@ -180,20 +206,36 @@ impl Game {
         let opponent_index = (turn + 1) % 2;
         
         self.board.mmove(pos)?;
+        let opponent = self.players.get(opponent_index).unwrap();
         
-        let mut turn = self.turn.write().unwrap();
-        *turn = (*turn + 1) % 2;
+        if self.board.check_mill_vertical(pos.1, None) || self.board.check_mill_horizontal(pos.1, None) {
+            opponent.machine().set_state(State::InGameTakeOpponent);
+            player.machine().set_state(State::InGameTake);
+        } else {
+            if self.board.check_draw(player.color()) {
+                // TODO: draw
+            } else {
+                opponent.machine().set_state(State::InGameMove);
+                player.machine().set_state(State::InGameMoveOpponent);
+                let mut turn = self.turn.write().unwrap();
+                *turn = (*turn + 1) % 2;
+            }
+        }
         
-        Ok(self.players.get(opponent_index).unwrap().client().clone())
+        Ok(opponent.clone())
     }
     
-    pub fn take(&self, player: Arc<Player>, pos: usize) -> Result<Weak<Client>, GameError> {
+    pub fn take(&self, player: Arc<Player>, pos: usize) -> Result<Arc<Player>, GameError> {
         let turn = *self.turn.read().unwrap();
         let player_turn = self.players[turn].clone();
+        
+        println!("taking");
         
         if player != player_turn {
             return Err(GameError::NotYourTurn);
         }
+        
+        println!("turn ok");
         
         let opponent_index = (turn + 1) % 2;
         let players_guard = &self.players;
@@ -204,10 +246,24 @@ impl Game {
         }
         
         self.board.take(pos)?;
+        opponent.take();
+        
+        println!("take ok");
+        
+        let inv_count: usize = self.players.iter().map(|p| p.inventory()).sum();
+        if inv_count == 0 {
+            opponent.machine().set_state(State::InGameMove);
+            player.machine().set_state(State::InGameMoveOpponent);
+        } else {
+            opponent.machine().set_state(State::InGamePut);
+            player.machine().set_state(State::InGamePutOpponent);
+        }
         
         let mut turn = self.turn.write().unwrap();
         *turn = (*turn + 1) % 2;
         
-        Ok(opponent.client().clone())
+        println!("turn update ok");
+        
+        Ok(opponent.clone())
     }
 }

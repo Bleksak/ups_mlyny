@@ -1,7 +1,7 @@
 use std::sync::{Arc, Weak, Mutex};
 
 use crate::server::{message::Message, client::Client, receiver::MessageReceiver};
-use crate::game::{self, Game, player::Player};
+use crate::game::{Game, player::Player};
 
 #[derive(Debug)]
 pub struct Machine {
@@ -13,9 +13,12 @@ pub enum State {
     Init = 0,
     InLobby = 1,
     InGamePut = 2,
-    InGameTake = 3,
-    InGameMove = 4,
-    GameOver = 5,
+    InGamePutOpponent = 3,
+    InGameTake = 4,
+    InGameTakeOpponent = 5,
+    InGameMove = 6,
+    InGameMoveOpponent = 7,
+    GameOver = 8,
 }
 
 impl TryInto<State> for u32 {
@@ -26,9 +29,12 @@ impl TryInto<State> for u32 {
             0 => Ok(State::Init),
             1 => Ok(State::InLobby),
             2 => Ok(State::InGamePut),
-            3 => Ok(State::InGameTake),
-            4 => Ok(State::InGameMove),
-            5 => Ok(State::GameOver),
+            3 => Ok(State::InGamePutOpponent),
+            4 => Ok(State::InGameTake),
+            5 => Ok(State::InGameTakeOpponent),
+            6 => Ok(State::InGameMove),
+            7 => Ok(State::InGameMoveOpponent),
+            8 => Ok(State::GameOver),
             _ => Err(()),
         }
     }
@@ -51,6 +57,7 @@ impl Machine {
             State::InGameTake => self.handle_in_game_take(message, receiver, player),
             State::InGameMove => self.handle_in_game_move(message, receiver, player),
             State::GameOver => self.handle_game_over(message, receiver, player),
+            _ => { /* ignore opponent's move */ }
         }
     }
     
@@ -106,15 +113,25 @@ impl Machine {
         if let (Message::Put(pos), Some(game)) = (message.clone(), player.game().upgrade()) {
             match game.put(player.clone(), pos) {
                 Ok(opponent) => {
-                    if let Some(opponent) = opponent.upgrade() {
+                    let opp_state = opponent.machine().state();
+                    
+                    if let Some(opponent) = opponent.client().upgrade() {
                         if let Ok(_) = opponent.write(&message.serialize()) {
                             println!("opponent notified");
+                        }
+                        
+                        if let Ok(_) = opponent.write(&Message::GameState(opp_state).serialize()) {
+                            println!("opponent's state changed");
                         }
                     }
                     
                     if let Some(client) = player.client().upgrade() {
                         if let Ok(_) = client.write(&Message::Mok.serialize()) {
                             println!("clicker notified :D");
+                        }
+                        
+                        if let Ok(_) = client.write(&Message::GameState(self.state()).serialize()) {
+                            println!("opponent's state changed");
                         }
                     }
                 },
@@ -131,6 +148,40 @@ impl Machine {
     
     fn handle_in_game_take(&self, message: Message, receiver: &MessageReceiver, player: Arc<Player>) {
         if let Message::Take(pos) = message {
+            if let Some(game) = player.game().upgrade() {
+                match game.take(player.clone(), pos) {
+                    Ok(opponent) => {
+                        let opp_state = opponent.machine().state();
+                    
+                        if let Some(opponent) = opponent.client().upgrade() {
+                            if let Ok(_) = opponent.write(&message.serialize()) {
+                                println!("opponent notified");
+                            }
+                        
+                            if let Ok(_) = opponent.write(&Message::GameState(opp_state).serialize()) {
+                                println!("opponent's state changed");
+                            }
+                        }
+                    
+                        if let Some(client) = player.client().upgrade() {
+                            if let Ok(_) = client.write(&Message::Mok.serialize()) {
+                                println!("clicker notified :D");
+                            }
+                        
+                            if let Ok(_) = client.write(&Message::GameState(self.state()).serialize()) {
+                                println!("opponent's state changed");
+                            }
+                        }
+                    },
+                    Err(err) => {
+                        if let (Some(msg), Some(client))  = (err.to_string(), player.client().upgrade())  {
+                            if let Ok(_) = client.write(&Message::Nok(Some(msg)).serialize()) {
+                                println!("sent err to client");
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
