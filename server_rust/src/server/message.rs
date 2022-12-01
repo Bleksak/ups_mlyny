@@ -6,14 +6,14 @@ pub enum Message {
     Nok(Option<String>) ,
     Create(String),
     Join(String),
-    Ready,
+    Ready(State, Color, Vec<u8>),
     Put(usize),
     Take(usize),
     Move(usize, usize),
     Over,
     Ping,
     Pong,
-    PlayerJoined(State, Color, Vec<u8>),
+    PlayerJoined,
 }
 
 impl Message {
@@ -48,9 +48,15 @@ impl Message {
                 v.append(&mut u32::to_be_bytes(3).to_vec());
                 v.append(&mut username.into_bytes().to_vec());
             },
-            Message::Ready => {
-                v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
+            Message::Ready(state, color, mut board) => {
+                let size = 1 + board.len() as u32 + 3 * u32_size;
+                let color = color.serialize();
+                
+                v.append(&mut u32::to_be_bytes(size).to_vec());
                 v.append(&mut u32::to_be_bytes(4).to_vec());
+                v.append(&mut u32::to_be_bytes(state as u32).to_vec());
+                v.append(&mut u8::to_be_bytes(color).to_vec());
+                v.append(&mut board);
             }
             Message::Put(index) => {
                 v.append(&mut u32::to_be_bytes(3*u32_size).to_vec());
@@ -82,18 +88,13 @@ impl Message {
                 v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(10).to_vec());
             },
-            Message::PlayerJoined(state, color, mut board) => {
-                let size = 1 + board.len() as u32 + 3 * u32_size;
-                let color = color.serialize();
-                
-                v.append(&mut u32::to_be_bytes(size).to_vec());
+            Message::PlayerJoined => {
+                v.append(&mut u32::to_be_bytes(2*u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(11).to_vec());
-                v.append(&mut u32::to_be_bytes(state as u32).to_vec());
-                v.append(&mut u8::to_be_bytes(color).to_vec());
-                v.append(&mut board);
             }
         }
         
+        println!("will send: {} bytes ", v.len());
         v
     }
     
@@ -121,7 +122,7 @@ impl Message {
             1 => Some(Self::Nok( if data.len() > 0 { Some(String::from_utf8(data.iter().cloned().collect()).ok()?) } else { None } )),
             2 => Some(Self::Create(String::from_utf8(data.iter().cloned().collect()).ok()?)),
             3 => Some(Self::Join(String::from_utf8(data.iter().cloned().collect()).ok()?)),
-            4 => Some(Self::Ready),
+            // 4 => Some(Self::Ready),
             5 => if data.len() >= u32_size { Some(Self::Put(u32::from_be_bytes(data[0..u32_size].try_into().ok()?) as usize)) } else { None },
             6 => if data.len() >= u32_size { Some(Self::Take(u32::from_be_bytes(data[0..u32_size].try_into().ok()?) as usize)) } else { None },
             7 => if data.len() >= 2*u32_size { Some(Self::Move(u32::from_be_bytes(data[0..u32_size].try_into().ok()?) as usize, u32::from_be_bytes(data[u32_size..2*u32_size].try_into().ok()?) as usize)) } else { None },

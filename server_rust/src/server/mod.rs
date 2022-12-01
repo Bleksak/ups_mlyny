@@ -6,7 +6,6 @@ use std::io;
 use std::net::TcpListener;
 use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::thread::sleep;
 
 use crate::server::message::Message;
 
@@ -22,8 +21,6 @@ pub struct Server {
 
 impl Server {
     fn process_request(&self, client: Arc<Client>, data: &Vec<u8>) {
-        println!("Got bytes: {}", data.len());
-        
         if let Some(message) = Message::deserialize(data) {
             println!("{:?}", message);
             self.recv_channel.send( (client.clone(), message) ).unwrap();
@@ -57,12 +54,14 @@ impl Server {
             }
             
             if disconnect.len() == 1 {
-                self.clients.swap_remove(disconnect[0]);
-                println!("disconnecting")
+                println!("disconnecting");
+                let c = self.clients.swap_remove(disconnect[0]);
+                println!("weak count: {} strong count: {}", Arc::weak_count(&c), Arc::strong_count(&c));
             } else {
                 for delete in disconnect.iter().rev() {
                     println!("disconnecting!");
-                    self.clients.remove(*delete);
+                    let c = self.clients.remove(*delete);
+                    println!("weak count: {} strong count: {}", Arc::weak_count(&c), Arc::strong_count(&c));
                 }
             }
             

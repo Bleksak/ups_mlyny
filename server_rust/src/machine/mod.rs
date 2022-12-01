@@ -57,7 +57,7 @@ impl Machine {
     pub fn new_client_init(message: Message, receiver: &MessageReceiver, client: Weak<Client>) {
         match message {
             Message::Create(username) => {
-                if let Some(_) = Self::create_game(username, receiver, client) {
+                if let Some(_) = Self::create_game(username, receiver, client.clone()) {
                     println!("Sucessfully created a game");
                 }
             }
@@ -150,16 +150,31 @@ impl Machine {
         // client cannot be in game
         // but username can
         let games = receiver.games();
+        
         for game in games.lock().unwrap().iter() {
-            if let Some(_) = game.try_join(&username, client.clone()) {
-                println!("connected");
+            if let Some(player) = game.has_player(&username) {
+                if let (Some(_), Some(client)) = (player.client().upgrade(), client.upgrade()) {
+                    if let Ok(_) = client.write(&Message::Nok(Some("Username is already taken!".to_string())).serialize()) {
+                    }
+                    return None;
+                }
+            }
+            
+            if let Some(_) = game.try_join(&username, receiver, client.clone()) {
+                println!("joined with try");
                 return Some(game.clone());
             }
         }
         
         for game in games.lock().unwrap().iter() {
             if let Some(_) = game.force_join(&username, receiver, client.clone()) {
+                println!("joined with force");
                 return Some(game.clone());
+            }
+        }
+        
+        if let Some(client) = client.upgrade() {
+            if let Ok(_) = client.write(&Message::Nok(Some("There are no open lobbies!".to_string())).serialize()) {
             }
         }
         
@@ -173,7 +188,11 @@ impl Machine {
         let games = receiver.games();
         
         for game in games.lock().unwrap().iter() {
-            if game.has_player(&username) {
+            if let Some(_) = game.has_player(&username) {
+                if let Some(client) = client.upgrade() {
+                    if let Ok(_) = client.write(&Message::Nok(Some("Username is already taken!".to_string())).serialize()) {
+                    }
+                }
                 return None;
             }
         }
@@ -181,7 +200,6 @@ impl Machine {
         let game = Game::new();
         
         println!("trying to connect player");
-        
         if let Some(_) = game.force_join(&username, receiver, client) {
             games.lock().unwrap().push(game);
             return Some(());

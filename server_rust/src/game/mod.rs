@@ -59,30 +59,39 @@ impl Game {
                 player.machine().set_state(State::InGamePut);
             }
                 
+                
             if let Some(client) = player.client().upgrade() {
-                if let Ok(_) = client.write(&Message::PlayerJoined(player.machine().state(), player.color(), self.board.serialize()).serialize()) {
+                let msg = if count == 2 { Message::Ready(player.machine().state(), player.color(), self.board.serialize()) } else { Message::PlayerJoined };
+                if let Ok(_) = client.write(&msg.serialize()) {
                     println!("player {} notified", player.name().as_ref().unwrap());
                 }
             }
         }
     }
     
-    pub fn try_join(&self, username: &str, client: Weak<Client>) -> Option<()> {
+    pub fn try_join(&self, username: &str, receiver: &MessageReceiver, client: Weak<Client>) -> Option<()> {
         let mut val = None;
         
-        for player in self.players.iter() {
-            if let Some(name) = player.name() {
-                if name == username {
-                    if player.client().upgrade().is_none() {
-                        println!("Connecting {}", username);
-                        player.bind(client.clone());
-                        println!("bound");
-                        val = Some(());
-                        break;
+        if let Some(client) = client.upgrade() {
+            for player in self.players.iter() {
+                if let Some(name) = player.name() {
+                    if name == username {
+                        if player.client().upgrade().is_none() {
+                            player.bind(Arc::downgrade(&client));
+                        
+                            let mut plock = receiver.players().lock().unwrap();
+                            let entry = plock.entry(client.sock_fd());
+                            entry.or_insert(Arc::downgrade(player));
+                        
+                            val = Some(());
+                            break;
+                        }
                     }
                 }
             }
+            
         }
+        
         
         if let Some(_) = val {
             self.notify_join();
@@ -93,6 +102,10 @@ impl Game {
     
     pub fn force_join(&self, username: &str, receiver: &MessageReceiver, client: Weak<Client>) -> Option<()> {
         let mut val = None;
+        
+        if let Some(_) = self.players.iter().filter_map(|p| p.name()).find(|p| p == username) {
+            return None;
+        }
         
         for player in self.players.iter() {
             if player.name().is_none() {
@@ -118,16 +131,16 @@ impl Game {
        val
     }
     
-    pub fn has_player(&self, username: &str) -> bool {
+    pub fn has_player(&self, username: &str) -> Option<Arc<Player>> {
         for player in self.players.iter() {
             if let Some(name) = player.name() {
                 if name == username {
-                    return true;
+                    return Some(player.clone());
                 }
             }
         }
         
-        false
+        None
     }
     
     pub fn put(&self, player: Arc<Player>, pos: usize) -> Result<Weak<Client>, GameError> {
@@ -140,13 +153,16 @@ impl Game {
         
         let opponent_index = (turn + 1) % 2;
         
+        println!("putting!");
         self.board.put(pos, player.color())?;
         // Check for mill
         
         let mut turn = self.turn.write().unwrap();
         *turn = (*turn + 1) % 2;
         
-        Ok(self.players.get(opponent_index).unwrap().client().to_owned())
+        println!("turn: {}", *turn);
+        
+        Ok(self.players.get(opponent_index).unwrap().client().clone())
     }
     
     pub fn mmove(&self, player: Arc<Player>, pos: (usize, usize)) -> Result<Weak<Client>, GameError> {

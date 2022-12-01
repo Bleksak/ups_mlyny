@@ -2,9 +2,9 @@ package mlyn.controller;
 
 import java.io.IOException;
 
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -34,7 +34,7 @@ public class MainMenuController extends BorderPane {
 
         quitButton.setMinHeight(50);
         quitButton.setMinWidth(128);
-        quitButton.setOnAction(this::quitClicked);
+        quitButton.setOnAction(e -> Platform.exit());
 
         Label usernameLabel = new Label("Username");
         usernameLabel.setAlignment(Pos.CENTER);
@@ -62,32 +62,34 @@ public class MainMenuController extends BorderPane {
         setCenter(hbox);
     }
 
-    public void getVBox() {
-        Button createButton = new Button("Create game");
-        Button joinButton = new Button("Join game");
-        Button quitButton = new Button("Quit");
-
-        VBox box = new VBox(createButton, joinButton, quitButton);
-        box.setAlignment(Pos.CENTER);
-        box.setLayoutX(336);
-        box.setLayoutY(200);
-        box.setSpacing(10);
-
-    }
-
     void createGameClicked(ActionEvent event) {
-        CreateGameController view = null;
-
         try {
-            view = new CreateGameController(usernameField.getText());
-            Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-            stage.setScene(new Scene(view));
+            Stage stage = new Stage();
+            Scene scene = new Scene(new CreateGameController(usernameField.getText()), 800, 600);
+            stage.setScene(scene);
+            stage.setResizable(false);
+            stage.centerOnScreen();
+            stage.setTitle("Mill - Game");
+
             stage.show();
-        } catch(IOException e) {}
+        } catch (IOException e) {
+            System.out.println("Failed to connect to server blabla");
+        }
     }
 
     void joinGameClicked(ActionEvent event) {
+        try {
+            Stage stage = new Stage();
+            Scene scene = new Scene(new JoinGameController(usernameField.getText()), 800, 600);
+            stage.setScene(scene);
+            stage.setResizable(false);
+            stage.centerOnScreen();
+            stage.setTitle("Mill - Game");
 
+            stage.show();
+        } catch (IOException e) {
+            System.out.println("Failed to connect to server blabla");
+        }
     }
 
     void quitClicked(ActionEvent event) {

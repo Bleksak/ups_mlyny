@@ -9,19 +9,73 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class Client {
-    private final Socket socket;
-    private final InputStream is;
-    private final OutputStream os;
-    private Machine machine;
+import javafx.scene.paint.Color;
+
+public class Client extends Thread {
+    private Socket socket;
+    private InputStream is;
+    private OutputStream os;
+
+    private Machine machine = new Machine();
+    private Color color;
+
+    private boolean running = true;
 
     ConcurrentLinkedQueue<Message> messageQueue = new ConcurrentLinkedQueue<>();
+    ConcurrentLinkedQueue<Message> sendQueue = new ConcurrentLinkedQueue<>();
 
     public Client() throws IOException {
         socket = new Socket(Config.ip, Config.port);
 
         is = socket.getInputStream();
         os = socket.getOutputStream();
+        this.start();
+    }
+
+    public void disconnect() {
+        try {
+            running = false;
+            socket.close();
+        } catch (IOException e) {
+        }
+    }
+
+    public Machine getMachine() {
+        return machine;
+    }
+
+    public Color getColor() {
+        return color;
+    }
+
+    // This doesn't need to be synchronized cause we only call it once
+    public void setColor(Color color) {
+        this.color = color;
+    }
+
+    public boolean reconnect() throws IOException {
+        long start = System.currentTimeMillis();
+        long timeout = 5000;
+
+        while(!socket.isConnected()) {
+            if(System.currentTimeMillis() - start <= timeout) {
+                return false;
+            }
+
+            socket = new Socket(Config.ip, Config.port);
+            is = socket.getInputStream();
+            os = socket.getOutputStream();
+        }
+
+        return true;
+    }
+
+    public void run() {
+        while(running) {
+            if(socket.isConnected()) {
+                splitMessages(readAll());
+            }
+        }
     }
 
     public List<Byte> readAll() {
@@ -41,6 +95,11 @@ public class Client {
 
             while(true) {
                 byteArray = new byte[512];
+
+                if(is.available() <= 0) {
+                    return bytes;
+                }
+
                 read = is.read(byteArray, 0, byteArray.length);
 
                 for(int i = 0; i < read; ++i) {
@@ -58,8 +117,12 @@ public class Client {
     }
 
     void splitMessages(List<Byte> byteList) {
-        byte[] bytes= new byte[byteList.size()];
-        for(int i = 0; i < byteList.size(); i++) {
+        if(byteList == null) {
+            return;
+        }
+
+        byte[] bytes = new byte[byteList.size()];
+        for(int i = 0; i < byteList.size(); ++i) {
             bytes[i] = byteList.get(i).byteValue();
         }
 
@@ -72,13 +135,14 @@ public class Client {
             }
 
             int size = buffer.getInt() - 2 * Integer.BYTES;
-            if(size <= 0) {
+            if(size < 0) {
                 continue;
-                // invalid message
             }
+
 
             int typeInt = buffer.getInt();
             MessageType type = MessageType.valueOf(typeInt);
+
             if(type == MessageType.INVALID) {
                 continue;
             }
@@ -90,6 +154,16 @@ public class Client {
             byte[] data = new byte[size];
             buffer.get(data);
 
+            if(type == MessageType.PING) {
+                sendQueue.add(new Message(type, data));
+                continue;
+            }
+
+            if(type == MessageType.PONG) {
+                // TODO: handle pong
+                continue;
+            }
+
             messageQueue.add(new Message(type, data));
         }
     }
@@ -98,16 +172,25 @@ public class Client {
         os.write(msg.serialize());
     }
 
-    public Message getMessage(MessageType... types) {
+    public Message getMessage(MessageType... types) throws InterruptedException {
         while(true) {
-            if(messageQueue.isEmpty()) {
-                continue;
+            if(Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException();
             }
 
-            Message msg = messageQueue.peek();
-            for(MessageType type : types) {
-                if(msg.type() == type) {
+            synchronized(this.messageQueue) {
+                if(messageQueue.isEmpty()) {
+                    continue;
+                }
+                if(types.length == 0) {
                     return messageQueue.remove();
+                }
+
+                Message msg = messageQueue.peek();
+                for(MessageType type : types) {
+                    if(msg.type() == type) {
+                        return messageQueue.remove();
+                    }
                 }
             }
         }

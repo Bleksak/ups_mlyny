@@ -48,7 +48,10 @@ impl Player {
     }
     
     pub fn bind(&self, client: Weak<Client>) {
+        println!("WHAT THE FUCKING SHIT");
+        println!("setting client");
         *self.client.lock().unwrap() = client;
+        println!("client set");
     }
     
     pub fn client(&self) -> Weak<Client> {
