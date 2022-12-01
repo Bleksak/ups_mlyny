@@ -1,6 +1,6 @@
 use std::sync::{Arc, Weak, Mutex};
 
-use crate::{server::client::Client, machine::Machine};
+use crate::{server::client::Client, machine::{Machine, State}};
 
 use super::{color::Color, Game};
 
@@ -16,14 +16,14 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(color: Color) -> Self {
+    pub fn new(color: Color, state: State) -> Self {
         Self {
             username: Mutex::new(None),
             client: Mutex::new(Weak::new()),
             color,
-            inventory_cnt: Mutex::new(9),
+            inventory_cnt: Mutex::new(3),
             board_cnt: Mutex::new(0),
-            machine: Arc::new(Machine::new()),
+            machine: Arc::new(Machine::new(state)),
             game: Mutex::new(Weak::new()),
         }
     }

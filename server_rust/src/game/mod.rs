@@ -15,7 +15,7 @@ pub struct Game {
 }
 
 pub enum GameError {
-    PlayerNotInGame,
+    // PlayerNotInGame,
     NotYourTurn,
     CannotMove,
     BadPosition,
@@ -24,14 +24,14 @@ pub enum GameError {
 }
 
 impl GameError {
-    pub fn to_string(self) -> Option<String> {
+    pub fn to_string(self) -> String {
         match self {
-            GameError::PlayerNotInGame => None,
-            GameError::NotYourTurn => Some("It's not your turn".to_string()),
-            GameError::CannotMove => Some("Cannot move".to_string()),
-            GameError::BadPosition => Some("Invalid position".to_string()),
-            GameError::FieldTaken => Some("Field is already taken".to_string()),
-            GameError::InvalidField => Some("Invalid field chosen".to_lowercase()),
+            // GameError::PlayerNotInGame => None,
+            GameError::NotYourTurn => "It's not your turn".to_string(),
+            GameError::CannotMove => "Cannot move".to_string(),
+            GameError::BadPosition => "Invalid position".to_string(),
+            GameError::FieldTaken => "Field is already taken".to_string(),
+            GameError::InvalidField => "Invalid field chosen".to_lowercase(),
         }
     }
 }
@@ -40,7 +40,7 @@ impl Game {
     pub fn new() -> Arc<Self> {
         let s = Arc::new(Self {
             turn: RwLock::new(0),
-            players: [Arc::new(Player::new(Color::Red)), Arc::new(Player::new(Color::Blue))],
+            players: [Arc::new(Player::new(Color::Red, State::InGamePut)), Arc::new(Player::new(Color::Blue, State::InGamePutOpponent))],
             board: Board::new(),
         });
         
@@ -66,10 +66,6 @@ impl Game {
     fn notify_join(&self) {
         let count = self.players.iter().filter_map(|p| p.client().upgrade()).count();
         
-        if count == 2 {
-            self.players.get(0).unwrap().machine().set_state(State::InGamePut);
-            self.players.get(1).unwrap().machine().set_state(State::InGamePutOpponent);
-        }
         for player in self.players.iter() {
             if let Some(client) = player.client().upgrade() {
                 let msg = if count == 2 { Message::Ready(player.machine().state(), player.color(), self.board.serialize()) } else { Message::PlayerJoined };
@@ -102,7 +98,6 @@ impl Game {
             }
             
         }
-        
         
         if let Some(_) = val {
             self.notify_join();
@@ -167,8 +162,7 @@ impl Game {
         println!("putting!");
         self.board.put(pos, player.color())?;
         player.put();
-        // Check for mill
-        
+       
         let opponent = self.players.get(opponent_index).unwrap();
         
         if self.board.check_mill_vertical(pos, None) || self.board.check_mill_horizontal(pos, None) {
@@ -205,7 +199,7 @@ impl Game {
         
         let opponent_index = (turn + 1) % 2;
         
-        self.board.mmove(pos)?;
+        self.board.mmove(pos, player.board() < 3)?;
         let opponent = self.players.get(opponent_index).unwrap();
         
         if self.board.check_mill_vertical(pos.1, None) || self.board.check_mill_horizontal(pos.1, None) {
@@ -229,13 +223,9 @@ impl Game {
         let turn = *self.turn.read().unwrap();
         let player_turn = self.players[turn].clone();
         
-        println!("taking");
-        
         if player != player_turn {
             return Err(GameError::NotYourTurn);
         }
-        
-        println!("turn ok");
         
         let opponent_index = (turn + 1) % 2;
         let players_guard = &self.players;
@@ -248,10 +238,12 @@ impl Game {
         self.board.take(pos)?;
         opponent.take();
         
-        println!("take ok");
+        let inv_cnt: usize = self.players.iter().map(|p| p.inventory()).sum();
         
-        let inv_count: usize = self.players.iter().map(|p| p.inventory()).sum();
-        if inv_count == 0 {
+        if opponent.board() + opponent.inventory() < 3 {
+            opponent.machine().set_state(State::GameOver);
+            player.machine().set_state(State::GameOver);
+        } else if inv_cnt == 0 {
             opponent.machine().set_state(State::InGameMove);
             player.machine().set_state(State::InGameMoveOpponent);
         } else {
@@ -261,8 +253,6 @@ impl Game {
         
         let mut turn = self.turn.write().unwrap();
         *turn = (*turn + 1) % 2;
-        
-        println!("turn update ok");
         
         Ok(opponent.clone())
     }

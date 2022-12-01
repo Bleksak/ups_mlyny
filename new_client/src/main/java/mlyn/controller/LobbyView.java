@@ -7,6 +7,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -30,8 +31,17 @@ public class LobbyView extends BorderPane {
     protected Client client;
     protected ExecutorService executorService = Executors.newFixedThreadPool(1);
 
-    public LobbyView() throws IOException {
-        client = new Client();
+    private final Task<Message> joinTask = new Task<Message>() {
+        @Override
+        protected Message call() throws Exception {
+            return client.getMessage(MessageType.READY);
+        }
+    };
+
+    public LobbyView(Client client) {
+        this.client = client;
+        joinTask.setOnSucceeded(e -> joinGame(joinTask.getValue()));
+
         Text waitingText = new Text("Waiting for players");
         ProgressIndicator indicator = new ProgressIndicator();
         Button exitButton = new Button("Quit");
@@ -49,10 +59,19 @@ public class LobbyView extends BorderPane {
         setCenter(hbox);
     }
 
+    public LobbyView() throws IOException {
+        this(new Client());
+    }
+
+
     protected void close(ActionEvent event) {
         executorService.shutdownNow();
         client.disconnect();
         getScene().getWindow().fireEvent(new WindowEvent(this.getScene().getWindow(), WindowEvent.WINDOW_CLOSE_REQUEST));
+    }
+
+    protected void waitForConnection() {
+        executorService.execute(joinTask);
     }
 
     protected void joinGame(Message msg) {
@@ -64,6 +83,7 @@ public class LobbyView extends BorderPane {
             alert.setHeaderText(new String(msg.data(), StandardCharsets.UTF_8));
             Platform.runLater( () -> alert.showAndWait());
             close(null);
+            return;
         }
 
         ByteBuffer buffer = ByteBuffer.wrap(msg.data());

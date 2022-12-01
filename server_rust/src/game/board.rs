@@ -9,7 +9,7 @@ pub struct Board {
 
 static NEIGHBORS: Lazy<Vec<(Vec<usize>, Vec<usize>)>> = Lazy::new(|| {
     vec![
-        (vec![1], vec![6]), // 0
+        (vec![1], vec![9]), // 0
         (vec![0, 2], vec![4]), // 1
         (vec![1], vec![14]), // 2
         (vec![4], vec![10]), // 3
@@ -23,12 +23,12 @@ static NEIGHBORS: Lazy<Vec<(Vec<usize>, Vec<usize>)>> = Lazy::new(|| {
         (vec![10], vec![6, 15]), // 11
         (vec![13], vec![8, 17]), // 12
         (vec![12, 14], vec![5, 20]), // 13
-        (vec![14], vec![2, 23]), // 14
+        (vec![13], vec![2, 23]), // 14
         (vec![16], vec![11]), // 15
         (vec![15, 17], vec![19]), // 16
         (vec![16], vec![12]), // 17
         (vec![19], vec![10]), // 18
-        (vec![18, 20], vec![13, 22]), // 19
+        (vec![18, 20], vec![16, 22]), // 19
         (vec![19], vec![13]), // 20
         (vec![22], vec![9]), // 21
         (vec![21, 23], vec![19]), // 22
@@ -149,8 +149,17 @@ impl Board {
     }
     
     /// Moves color from one position to another one
-    pub fn mmove(&self, (from, to): (usize, usize)) -> Result<(), GameError> {
+    pub fn mmove(&self, (from, to): (usize, usize), jump_allowed: bool) -> Result<(), GameError> {
         let mut guard = self.board.lock().unwrap();
+        println!("jump allowed? {}", jump_allowed);
+        if NEIGHBORS.len() > from && NEIGHBORS.len() > to {
+            if !jump_allowed && NEIGHBORS[from].0.contains(&to) && NEIGHBORS[from].1.contains(&to) {
+                return Err(GameError::CannotMove);
+            }
+        } else {
+            return Err(GameError::BadPosition);
+        }
+        
         let color = {
             let c = guard.get_mut(from).ok_or(GameError::BadPosition)?;
             let color = *c;

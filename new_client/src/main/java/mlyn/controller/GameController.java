@@ -7,13 +7,19 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.geometry.HPos;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
@@ -24,6 +30,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import mlyn.model.Client;
 import mlyn.model.Machine;
@@ -40,11 +47,11 @@ class OpponentThread extends Thread {
         this.client = client;
         this.controller = controller;
     }
-// s krtki  
+
     public void run() {
         try {
             while(true) {
-                Message msg = client.getMessage(MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.GAME_STATE);
+                Message msg = client.getMessage(MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.GAME_STATE, MessageType.DISCONNECT, MessageType.OVER);
                 switch(msg.type()) {
                     case PLAYER_PUT: {
                         int index = ByteBuffer.wrap(msg.data()).getInt();
@@ -53,24 +60,37 @@ class OpponentThread extends Thread {
                     } break;
 
                     case PLAYER_TAKE: {
-                        System.out.println("take?");
                         int index = ByteBuffer.wrap(msg.data()).getInt();
-                        // Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
                         controller.getCircle(index).setFill(Color.BLACK);
                     } break;
 
                     case PLAYER_MV: {
+                        ByteBuffer buffer = ByteBuffer.wrap(msg.data());
+                        int oldIndex = buffer.getInt();
+                        int newIndex = buffer.getInt();
 
+                        Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
+                        controller.getCircle(oldIndex).setFill(Color.BLACK);
+                        controller.getCircle(newIndex).setFill(opponentColor);
                     } break;
 
                     case GAME_STATE: {
                         if(msg.data().length > 0) {
                             ByteBuffer buffer = ByteBuffer.wrap(msg.data());
                             Machine.State newState = Machine.State.valueOf(buffer.getInt());
-                            System.out.println("new state: " + newState.name());
                             client.getMachine().setState(newState);
+                            System.out.println(newState.name());
                         }
                     } break;
+
+                    case DISCONNECT: {
+                        controller.opponentDisconnected();
+                    } break;
+
+                    case OVER: {
+                        controller.gameOver();
+                        return;
+                    }
                 }
             }
         } catch(InterruptedException ex) {
@@ -102,6 +122,12 @@ public class GameController extends BorderPane {
     }
 
     private void makeGUI() {
+        this.setOnMouseClicked(e -> {
+            if(e.getButton() == MouseButton.SECONDARY) {
+                prevIndex = -1;
+            }
+        });
+
         Button quitButton = new Button("Quit");
         quitButton.setOnAction(this::quitClicked);
         quitButton.setMinHeight(30);
@@ -165,7 +191,7 @@ public class GameController extends BorderPane {
             c.setCenterY((y+0.5) * minHeight + h);
 
             final int index = j++;
-            c.setOnMouseClicked(e -> circleClicked(index));
+            c.setOnMouseClicked(e -> circleClicked(e, index));
 
             circles.add(c);
             grid.add(c, x, y);
@@ -186,6 +212,8 @@ public class GameController extends BorderPane {
             lineMaker(grid, 6, 15),
             lineMaker(grid, 8, 17),
             lineMaker(grid, 5, 20),
+            lineMaker(grid, 1, 7),
+            lineMaker(grid, 16, 22),
         };
 
         Group group = new Group(lines);
@@ -210,6 +238,25 @@ public class GameController extends BorderPane {
         return count;
     }
 
+    public void gameOver() {
+        int redCount = countColor(Color.RED);
+        int blueCount = countColor(Color.BLUE);
+
+        String redWin = "Red player wins!";
+        String bluWin = "Blue player wins!";
+
+        Platform.runLater(() -> {
+            Alert alert = new Alert(AlertType.INFORMATION);
+            if(redCount > blueCount) {
+                alert.setHeaderText(redWin);
+            } else {
+                alert.setHeaderText(bluWin);
+            }
+
+            alert.showAndWait().ifPresent(e -> quitClicked(null));
+        });
+    }
+
     public GameController(Client client, ByteBuffer board) {
         this.client = client;
         this.service.execute(new OpponentThread(this, client));
@@ -232,21 +279,38 @@ public class GameController extends BorderPane {
         return circles.get(index);
     }
 
-    private void quitClicked(ActionEvent event) {
-        this.service.shutdownNow();
-        this.client.disconnect();
-        this.getScene().getWindow().fireEvent(new WindowEvent(this.getScene().getWindow(), WindowEvent.WINDOW_CLOSE_REQUEST));
+    public void quitClicked(ActionEvent event) {
+        Platform.runLater(() -> {
+            this.client.disconnect();
+            this.service.shutdownNow();
+            this.getScene().getWindow().fireEvent(new WindowEvent(this.getScene().getWindow(), WindowEvent.WINDOW_CLOSE_REQUEST));
+        });
     }
 
-    private void circleClicked(int index) {
+    public void opponentDisconnected() {
+        this.service.shutdownNow();
+        Platform.runLater(() -> {
+            Scene sc = new Scene(new JoinGameController(client));
+            Stage stage = (Stage) this.getScene().getWindow();
+            stage.setScene(sc);
+            stage.show();
+        });
+    }
 
-        Machine.State state = client.getMachine().getState();
-
-        if(state == Machine.State.GAME_MOVE_OPP || state == Machine.State.GAME_PUT_OPP || state == Machine.State.GAME_TAKE_OPP) {
+    private void circleClicked(MouseEvent e, int index) {
+        System.out.println(index);
+        if(e.getButton() == MouseButton.SECONDARY) {
+            prevIndex = -1;
             return;
         }
 
-        if(prevIndex == -1 && client.getMachine().getState() == Machine.State.GAME_MOVE) {
+        Machine.State state = client.getMachine().getState();
+
+        if(state == State.GAME_MOVE_OPP || state == State.GAME_PUT_OPP || state == State.GAME_TAKE_OPP || state == State.GAME_OVER) {
+            return;
+        }
+
+        if(prevIndex == -1 && client.getMachine().getState() == State.GAME_MOVE) {
             prevIndex = index;
             return;
         }
@@ -258,7 +322,6 @@ public class GameController extends BorderPane {
                     case GAME_MOVE: {
                         System.out.println("move");
                         client.send(new Message(MessageType.PLAYER_MV, ByteBuffer.allocate(2*Integer.BYTES).putInt(prevIndex).putInt(index).array()));
-                        prevIndex = -1;
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
@@ -273,15 +336,13 @@ public class GameController extends BorderPane {
                         client.send(new Message(MessageType.PLAYER_TAKE, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
-
-                    case GAME_OVER: {} break;
                 }
 
                 return null;
             }
         };
 
-        task.setOnSucceeded(e -> {
+        task.setOnSucceeded(r -> {
             Message msg = task.getValue();
             switch(msg.type()) {
                 case NOK: {
@@ -290,8 +351,12 @@ public class GameController extends BorderPane {
                 case OK: {
                     if(state == State.GAME_TAKE) {
                         circles.get(index).setFill(Color.BLACK);
-                    } else {
+                    } else if(state == State.GAME_PUT) {
                         circles.get(index).setFill(client.getColor());
+                    } else {
+                        circles.get(prevIndex).setFill(Color.BLACK);
+                        circles.get(index).setFill(client.getColor());
+                        prevIndex = -1;
                     }
 
                 } break;

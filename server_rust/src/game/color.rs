@@ -14,12 +14,12 @@ impl Color {
         }
     }
     
-    pub fn deserialize(value: u32) -> Option<Self> {
-        match value {
-            0 => Some(Self::Neutral),
-            1 => Some(Self::Red),
-            2 => Some(Self::Blue),
-            _ => None
-        }
-    }
+    // pub fn deserialize(value: u32) -> Option<Self> {
+    //     match value {
+    //         0 => Some(Self::Neutral),
+    //         1 => Some(Self::Red),
+    //         2 => Some(Self::Blue),
+    //         _ => None
+    //     }
+    // }
 }
