@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex, Weak};
 
 use super::client::Client;
@@ -11,11 +11,12 @@ use crate::machine::Machine;
 pub struct MessageReceiver {
     games: Mutex<Vec<Arc<Game>>>,
     players: Mutex<HashMap<i32, Weak<Player>>>,
+    disconnect_channel: Sender<Weak<Client>>,
 }
 
 impl MessageReceiver {
-    pub fn new() -> Self {
-        Self { games: Mutex::new(vec![]), players: Mutex::new(HashMap::new()) }
+    pub fn new(disconnect_channel: Sender<Weak<Client>>) -> Self {
+        Self { games: Mutex::new(vec![]), players: Mutex::new(HashMap::new()), disconnect_channel }
     }
     
     fn find_player(&self, fd: i32) -> Option<Arc<Player>> {
@@ -30,6 +31,10 @@ impl MessageReceiver {
         }
         
         None
+    }
+    
+    pub fn disconnect(&self, client: Weak<Client>) {
+        self.disconnect_channel.send(client).unwrap();
     }
     
     pub fn run(&self, channel: Receiver<(Arc<Client>, Message)>) {

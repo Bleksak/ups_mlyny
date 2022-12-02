@@ -63,13 +63,13 @@ impl Machine {
     pub fn new_client_init(message: Message, receiver: &MessageReceiver, client: Weak<Client>) {
         match message {
             Message::Create(username) => {
-                if let Some(_) = Self::create_game(username, receiver, client.clone()) {
-                    println!("Sucessfully created a game");
+                if let Some(_) = Self::create_game(username.clone(), receiver, client.clone()) {
+                    println!("{}: Sucessfully created a game", username);
                 }
             }
             Message::Join(username) => {
-                if let Some(_) = Self::join_game(username, receiver, client) {
-                    println!("Sucessfully joined a game");
+                if let Some(_) = Self::join_game(username.clone(), receiver, client) {
+                    println!("{}: Sucessfully joined a game", username);
                 }
                 
             },
@@ -127,7 +127,7 @@ impl Machine {
         }
     }
     
-    fn handle_in_game_take(&self, message: Message, _: &MessageReceiver, player: Arc<Player>) {
+    fn handle_in_game_take(&self, message: Message, receiver: &MessageReceiver, player: Arc<Player>) {
         if let Message::Take(pos) = message {
             if let Some(game) = player.game().upgrade() {
                 match game.take(player.clone(), pos) {
@@ -169,6 +169,10 @@ impl Machine {
                                     println!("sent game over");
                                 }
                             }
+                        }
+                        
+                        if opp_state == State::GameOver {
+                            game.game_over(receiver);
                         }
                         
                     },

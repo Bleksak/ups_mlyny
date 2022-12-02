@@ -159,7 +159,6 @@ impl Game {
         
         let opponent_index = (turn + 1) % 2;
         
-        println!("putting!");
         self.board.put(pos, player.color())?;
         player.put();
        
@@ -168,7 +167,6 @@ impl Game {
         if self.board.check_mill_vertical(pos, None) || self.board.check_mill_horizontal(pos, None) {
             opponent.machine().set_state(State::InGameTakeOpponent);
             player.machine().set_state(State::InGameTake);
-            println!("MILL FORMED, SETTING STATE");
         } else {
             let inv_count: usize = self.players.iter().map(|p| p.inventory()).sum();
             if inv_count == 0 {
@@ -255,5 +253,26 @@ impl Game {
         *turn = (*turn + 1) % 2;
         
         Ok(opponent.clone())
+    }
+    
+    pub fn game_over(&self, receiver: &MessageReceiver) {
+        //1. disconnect players
+        
+        for player in self.players.iter() {
+            receiver.disconnect(player.client());
+        }
+        
+        //2. destroy game
+        
+        let mut lock = receiver.games().lock().unwrap();
+        
+        let result = lock.iter().enumerate().find(|g| {
+            *g.1.turn.read().unwrap() == *self.turn.read().unwrap() && g.1.board == self.board && g.1.players == self.players
+        });
+        
+        if let Some((index, _)) = result {
+            lock.swap_remove(index);
+            println!("game removed!");
+        }
     }
 }

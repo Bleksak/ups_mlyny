@@ -183,3 +183,12 @@ impl Board {
         Ok(())
     }
 }
+
+impl PartialEq for Board {
+    fn eq(&self, other: &Self) -> bool {
+        let copy1 = self.board.lock().unwrap().clone();
+        let copy2 = other.board.lock().unwrap().clone();
+        
+        copy1 == copy2
+    }
+}

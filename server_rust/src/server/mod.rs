@@ -2,9 +2,10 @@ pub mod message;
 pub mod receiver;
 pub mod client;
 
+use std::collections::BinaryHeap;
 use std::io;
 use std::net::TcpListener;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::sync::mpsc::{self, Receiver, Sender};
 
 use crate::server::message::Message;
@@ -17,6 +18,7 @@ pub struct Server {
     clients: Vec<Arc<Client>>,
     client_channel: (Sender<Client>, Receiver<Client>),
     recv_channel: Sender<(Arc<Client>, Message)>,
+    disconnect_channel: Receiver<Weak<Client>>
 }
 
 impl Server {
@@ -36,7 +38,15 @@ impl Server {
                 self.clients.push(client);
             }
             
-            let mut disconnect = vec![];
+            let mut disconnect = BinaryHeap::new();
+            
+            if let Ok(client) = self.disconnect_channel.try_recv() {
+                if let Some(client) = client.upgrade() {
+                    if let Some((index, _)) = self.clients.iter().enumerate().find(|x| *x.1 == client) {
+                        disconnect.push(index);
+                    }
+                }
+            }
             
             let mut data_vec  = Vec::new();
             for (index, client) in self.clients.iter_mut().enumerate() {
@@ -53,14 +63,9 @@ impl Server {
                 self.process_request(client, &data);
             }
             
-            if disconnect.len() == 1 {
-                let client = self.clients.swap_remove(disconnect[0]);
+            while let Some(index) = disconnect.pop() {
+                let client = self.clients.remove(index);
                 self.recv_channel.send((client, Message::Disconnect)).unwrap();
-            } else {
-                for delete in disconnect.iter().rev() {
-                    let client = self.clients.remove(*delete);
-                    self.recv_channel.send((client, Message::Disconnect)).unwrap();
-                }
             }
             
             std::thread::sleep(std::time::Duration::from_millis(100));
@@ -73,12 +78,14 @@ impl Server {
         }
         
         let recv_channel = mpsc::channel();
+        let disconnect_channel = mpsc::channel();
         
         let server = Server {
             socket: TcpListener::bind(format!("127.0.0.1:{}", port))?,
             clients: vec![],
             client_channel: mpsc::channel(),
             recv_channel: recv_channel.0,
+            disconnect_channel: disconnect_channel.1
         };
         
         server.socket.set_nonblocking(true).unwrap();
@@ -86,7 +93,7 @@ impl Server {
         let socket = server.socket.try_clone()?;
         
         let receiver = std::thread::spawn(move|| {
-            MessageReceiver::new().run(recv_channel.1);
+            MessageReceiver::new(disconnect_channel.0).run(recv_channel.1);
         });
         
         let acceptor = std::thread::spawn(move || {

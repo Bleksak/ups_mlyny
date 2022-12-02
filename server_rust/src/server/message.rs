@@ -54,8 +54,6 @@ impl Message {
                 let size = 1 + board.len() as u32 + 3 * u32_size;
                 let color = color.serialize();
                 
-                println!("sending: {:?}", state);
-                
                 v.append(&mut u32::to_be_bytes(size).to_vec());
                 v.append(&mut u32::to_be_bytes(4).to_vec());
                 v.append(&mut u32::to_be_bytes(state as u32).to_vec());
@@ -107,7 +105,6 @@ impl Message {
             },
         }
         
-        println!("will send: {} bytes ", v.len());
         v
     }
     
