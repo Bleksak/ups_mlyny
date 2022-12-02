@@ -198,7 +198,7 @@ impl Game {
         }
         
         let opponent_index = (turn + 1) % 2;
-        
+        println!("moving my ass");
         self.board.mmove(pos, player.board() < 3)?;
         let opponent = self.players.get(opponent_index).unwrap();
         

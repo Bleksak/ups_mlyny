@@ -153,7 +153,10 @@ impl Board {
         let mut guard = self.board.lock().unwrap();
         println!("jump allowed? {}", jump_allowed);
         if NEIGHBORS.len() > from && NEIGHBORS.len() > to {
-            if !jump_allowed && NEIGHBORS[from].0.contains(&to) && NEIGHBORS[from].1.contains(&to) {
+            println!("{:?}", NEIGHBORS[from]);
+            println!("TO: {}", to);
+            
+            if !jump_allowed && (!NEIGHBORS[from].0.contains(&to) && !NEIGHBORS[from].1.contains(&to)) {
                 return Err(GameError::CannotMove);
             }
         } else {
