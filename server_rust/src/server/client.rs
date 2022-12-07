@@ -5,18 +5,30 @@ use std::sync::Mutex;
 
 
 #[derive(Debug)]
-pub struct Client(Mutex<TcpStream>);
+pub struct Client(Mutex<TcpStream>, Mutex<usize>);
+
+#[derive(PartialEq)]
+pub enum SocketError {
+    WouldBlock,
+    LimitReached
+}
 
 impl Client {
     pub fn new(stream: TcpStream) -> Self {
-        Self (Mutex::new(stream))
+        Self (Mutex::new(stream), Mutex::new(0))
+    }
+    
+    pub fn bad_message(&self) -> usize {
+        let mut guard = self.1.lock().unwrap();
+        *guard += 1;
+        *guard
     }
     
     pub fn write(&self, bytes: &[u8]) -> Result<(), io::Error> {
         self.lock().unwrap().write_all(bytes)
     }
     
-    pub fn read_all(&self) -> Option<Vec<u8>>{
+    pub fn read_all(&self, limit: Option<usize>) -> Result<Vec<u8>, SocketError>{
         let mut data : Vec<u8> = Vec::with_capacity(512);
         data.resize(512, 0);
         
@@ -27,7 +39,7 @@ impl Client {
         if let Err(err) = read {
             match err.kind() {
                 io::ErrorKind::WouldBlock => {
-                    return None;
+                    return Err(SocketError::WouldBlock);
                 },
                 
                 _ => {}
@@ -38,24 +50,27 @@ impl Client {
         
         loop {
             data.resize(read_bytes + 512, 0);
+            if let Some(limit) = limit {
+                if read_bytes > limit {
+                    return Err(SocketError::LimitReached);
+                }
+            }
             let read = self.lock().unwrap().read(&mut data[read_bytes..read_bytes+512]);
             
             if let Err(err) = read {
                 match err.kind() {
                     io::ErrorKind::WouldBlock => {
                         data.truncate(read_bytes);
-                        return Some(data)
+                        return Ok(data)
                     },
                 
-                    _ => {
-                        return None;
-                    }
+                    _ => {}
                 }
             } else {
                 let read = read.unwrap();
                 if read == 0 {
                     data.truncate(read_bytes);
-                    return Some(data);
+                    return Ok(data);
                 }
                 read_bytes += read;
             }

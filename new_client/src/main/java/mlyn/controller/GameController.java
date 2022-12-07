@@ -30,6 +30,8 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import mlyn.model.Client;
@@ -51,8 +53,12 @@ class OpponentThread extends Thread {
     public void run() {
         try {
             while(true) {
-                Message msg = client.getMessage(MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.GAME_STATE, MessageType.DISCONNECT, MessageType.OVER);
+                Message msg = client.getMessage(MessageType.SERVER_CRASH, MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.GAME_STATE, MessageType.DISCONNECT, MessageType.OVER);
                 switch(msg.type()) {
+                    case SERVER_CRASH: {
+                        controller.serverCrash();
+                        return;
+                    }
                     case PLAYER_PUT: {
                         int index = ByteBuffer.wrap(msg.data()).getInt();
                         Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
@@ -80,6 +86,7 @@ class OpponentThread extends Thread {
                             Machine.State newState = Machine.State.valueOf(buffer.getInt());
                             client.getMachine().setState(newState);
                             System.out.println(newState.name());
+                            controller.updateTurn();
                         }
                     } break;
 
@@ -109,6 +116,9 @@ public class GameController extends BorderPane {
     private List<Circle> circles = new ArrayList<>();
     private int prevIndex = -1;
 
+    private Text turnText = new Text();
+    private Text errorText = new Text();
+
     private static Line lineMaker(GridPane grid, int indexFrom, int indexTo) {
         double xFrom = ((Circle)grid.getChildren().get(indexFrom)).getCenterX();
         double yFrom = ((Circle)grid.getChildren().get(indexFrom)).getCenterY();
@@ -121,8 +131,34 @@ public class GameController extends BorderPane {
         return l;
     }
 
+    public void updateTurn() {
+        switch(client.getMachine().getState()) {
+            case GAME_MOVE:
+            case GAME_PUT:
+            case GAME_TAKE: {
+                turnText.setText("Your turn!");
+                break;
+            }
+
+            case GAME_OVER: {
+                turnText.setText("Game over!");
+            } break;
+
+            default: turnText.setText("Opponent's turn!");
+        }
+    }
+
+    public void serverCrash() {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(AlertType.ERROR);
+            alert.setHeaderText("Server crashed, game terminated!");
+            alert.showAndWait().ifPresent(e -> quitClicked(null));
+        });
+    }
+
     private void makeGUI() {
         this.setOnMouseClicked(e -> {
+            errorText.setText("");
             if(e.getButton() == MouseButton.SECONDARY) {
                 prevIndex = -1;
             }
@@ -219,12 +255,18 @@ public class GameController extends BorderPane {
         Group group = new Group(lines);
         group.getChildren().add(grid);
 
-        VBox vbox = new VBox(topMenu, group);
+        turnText.setFont(Font.font(15.0));
+        errorText.setFont(Font.font(15.0));
+        errorText.setFill(Color.RED);
+
+        VBox vbox = new VBox(topMenu, group, turnText, errorText);
         vbox.setAlignment(Pos.CENTER);
 
-        setMinSize(800, 600);
-        setPrefSize(800, 600);
+        setMinSize(800, 800);
+        setPrefSize(800, 800);
         setCenter(vbox);
+
+        updateTurn();
     }
 
     private int countColor(Color color) {
@@ -298,7 +340,7 @@ public class GameController extends BorderPane {
     }
 
     private void circleClicked(MouseEvent e, int index) {
-        System.out.println(index);
+        errorText.setText("");
         if(e.getButton() == MouseButton.SECONDARY) {
             prevIndex = -1;
             return;
@@ -307,7 +349,7 @@ public class GameController extends BorderPane {
         Machine.State state = client.getMachine().getState();
 
         if(state == State.GAME_MOVE_OPP || state == State.GAME_PUT_OPP || state == State.GAME_TAKE_OPP || state == State.GAME_OVER) {
-            return;
+            errorText.setText("It's not your turn!");
         }
 
         if(prevIndex == -1 && client.getMachine().getState() == State.GAME_MOVE) {
@@ -319,19 +361,22 @@ public class GameController extends BorderPane {
             @Override
             protected Message call() throws Exception {
                 switch(client.getMachine().getState()) {
-                    case GAME_MOVE: {
+                    case GAME_MOVE:
+                    case GAME_MOVE_OPP: {
                         System.out.println("move");
                         client.send(new Message(MessageType.PLAYER_MV, ByteBuffer.allocate(2*Integer.BYTES).putInt(prevIndex).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
-                    case GAME_PUT: {
+                    case GAME_PUT:
+                    case GAME_PUT_OPP: {
                         System.out.println("put");
                         client.send(new Message(MessageType.PLAYER_PUT, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
-                    case GAME_TAKE: {
+                    case GAME_TAKE:
+                    case GAME_TAKE_OPP: {
                         System.out.println("take");
                         client.send(new Message(MessageType.PLAYER_TAKE, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);

@@ -18,6 +18,7 @@ public class Client extends Thread {
 
     private Machine machine = new Machine();
     private Color color;
+    private static int readLimit = 4096;
 
     private boolean running = true;
 
@@ -78,46 +79,92 @@ public class Client extends Thread {
         }
     }
 
-    public List<Byte> readAll() {
-        List<Byte> bytes = new ArrayList<>();
+    // public List<Byte> readAll() {
+    //     List<Byte> bytes = new ArrayList<>();
 
+    //     try {
+    //         byte[] byteArray = new byte[512];
+    //         int read = is.read(byteArray, 0, byteArray.length);
+
+    //         for(int i = 0; i < read; ++i) {
+    //             bytes.add(byteArray[i]);
+    //         }
+
+    //         if(read < 0) {
+    //             return null;
+    //         }
+
+    //         while(true) {
+    //             byteArray = new byte[512];
+
+    //             if(is.available() <= 0) {
+    //                 return bytes;
+    //             }
+
+    //             read = is.read(byteArray, 0, byteArray.length);
+
+    //             for(int i = 0; i < read; ++i) {
+    //                 bytes.add(byteArray[i]);
+    //             }
+
+    //             if(bytes.size() > readLimit) {
+    //                 return bytes;
+    //             }
+
+    //             if(read <= 0) {
+    //                 return bytes;
+    //             }
+    //         }
+
+    //     } catch(IOException e) {
+    //         return null;
+    //     }
+    // }
+
+    private Integer readInt() throws IOException {
+        byte[] bytes = new byte[Integer.BYTES];
+
+        int read = is.read(bytes);
+        if(read != Integer.BYTES) {
+            return null;
+        }
+
+        return ByteBuffer.wrap(bytes).getInt();
+    }
+
+    public void readAll() {
         try {
-            byte[] byteArray = new byte[512];
-            int read = is.read(byteArray, 0, byteArray.length);
-
-            for(int i = 0; i < read; ++i) {
-                bytes.add(byteArray[i]);
+            Integer size = readInt();
+            if(size == null) {
+                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
+                return;
             }
 
-            if(read < 0) {
+            if(size > readLimit) {
+                int bytes = is.available();
+                for(int i = 0; i < size && is.available() > 0; ++i) {
+                    int read = is.read();
+                    if(read == -1) {
+                        return null;
+                    }
+                }
+                
                 return null;
             }
 
-            while(true) {
-                byteArray = new byte[512];
+            byte[] nnnn = is.readNBytes(size);
 
-                if(is.available() <= 0) {
-                    return bytes;
-                }
-
-                read = is.read(byteArray, 0, byteArray.length);
-
-                for(int i = 0; i < read; ++i) {
-                    bytes.add(byteArray[i]);
-                }
-
-                if(read <= 0) {
-                    return bytes;
-                }
-            }
 
         } catch(IOException e) {
             return null;
         }
+
+        return bytes;
     }
 
     void splitMessages(List<Byte> byteList) {
         if(byteList == null) {
+            messageQueue.add(new Message(MessageType.SERVER_CRASH, new byte[0]));
             return;
         }
 
@@ -138,7 +185,6 @@ public class Client extends Thread {
             if(size < 0) {
                 continue;
             }
-
 
             int typeInt = buffer.getInt();
             MessageType type = MessageType.valueOf(typeInt);

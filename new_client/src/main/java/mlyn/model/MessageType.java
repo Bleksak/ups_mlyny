@@ -17,7 +17,8 @@ public enum MessageType {
     PONG(10),
     PLAYER_JOIN_NOTIFY(11),
     DISCONNECT(12),
-    GAME_STATE(14); 
+    GAME_STATE(14),
+    SERVER_CRASH(15);
 
     private final int m_value;
     private static HashMap<Integer, MessageType> m_reverseMap = new HashMap<>();
