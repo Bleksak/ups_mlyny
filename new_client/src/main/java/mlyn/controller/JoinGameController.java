@@ -23,7 +23,7 @@ public class JoinGameController extends LobbyView {
         Task<Message> receiverTask = new Task<Message>() {
             @Override
             protected Message call() throws Exception {
-                return client.getMessage(MessageType.READY, MessageType.PLAYER_JOIN_NOTIFY, MessageType.NOK);
+                return client.getMessage(MessageType.SERVER_CRASH, MessageType.READY, MessageType.PLAYER_JOIN_NOTIFY, MessageType.NOK);
             }
         };
 
@@ -48,7 +48,19 @@ public class JoinGameController extends LobbyView {
                 case READY: {
                     joinGame(msg);
                 } break;
+
+                case SERVER_CRASH: {
+                    Alert alert = new Alert(AlertType.ERROR);
+                    alert.setHeaderText("Server crashed, game aborted!");
+                    Platform.runLater(() -> {
+                        alert.showAndWait();
+                    });
+
+                    this.close(null);
+                } break;
+                default: {}
             }
+
         });
 
 

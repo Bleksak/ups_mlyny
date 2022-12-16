@@ -2,7 +2,6 @@ package mlyn.controller;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -34,7 +33,7 @@ public class LobbyView extends BorderPane {
     private final Task<Message> joinTask = new Task<Message>() {
         @Override
         protected Message call() throws Exception {
-            return client.getMessage(MessageType.READY);
+            return client.getMessage(MessageType.READY, MessageType.SERVER_CRASH);
         }
     };
 
@@ -78,9 +77,9 @@ public class LobbyView extends BorderPane {
 
         this.executorService.shutdownNow();
 
-        if(msg.type() == MessageType.NOK) {
+        if(msg.type() == MessageType.SERVER_CRASH) {
             Alert alert = new Alert(AlertType.ERROR);
-            alert.setHeaderText(new String(msg.data(), StandardCharsets.UTF_8));
+            alert.setHeaderText("Server crashed, game aborted!");
             Platform.runLater( () -> alert.showAndWait());
             close(null);
             return;

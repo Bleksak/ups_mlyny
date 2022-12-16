@@ -10,6 +10,10 @@ public class Main extends Application {
     private static int WIDTH = 800;
     private static int HEIGHT = 600;
 
+    public static void main(String... args) {
+        Application.launch(Main.class, args);
+    }
+
     @Override
     public void start(Stage primaryStage) throws Exception {
         Scene scene = new Scene(new MainMenuController(), WIDTH, HEIGHT);

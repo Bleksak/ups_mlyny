@@ -1,6 +1,7 @@
 package mlyn.controller;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -98,6 +99,8 @@ class OpponentThread extends Thread {
                         controller.gameOver();
                         return;
                     }
+
+                    default: {}
                 }
             }
         } catch(InterruptedException ex) {
@@ -118,6 +121,8 @@ public class GameController extends BorderPane {
 
     private Text turnText = new Text();
     private Text errorText = new Text();
+    private Text playingColor = new Text();
+    private Text playingAgainst = new Text();
 
     private static Line lineMaker(GridPane grid, int indexFrom, int indexTo) {
         double xFrom = ((Circle)grid.getChildren().get(indexFrom)).getCenterX();
@@ -134,11 +139,11 @@ public class GameController extends BorderPane {
     public void updateTurn() {
         switch(client.getMachine().getState()) {
             case GAME_MOVE:
+                turnText.setText("Your turn to MOVE!"); break;
             case GAME_PUT:
-            case GAME_TAKE: {
-                turnText.setText("Your turn!");
-                break;
-            }
+                turnText.setText("Your turn to PUT!"); break;
+            case GAME_TAKE:
+                turnText.setText("Your turn to TAKE!"); break;
 
             case GAME_OVER: {
                 turnText.setText("Game over!");
@@ -157,8 +162,9 @@ public class GameController extends BorderPane {
     }
 
     private void makeGUI() {
-        this.setOnMouseClicked(e -> {
+        this.setOnMousePressed(e -> {
             errorText.setText("");
+
             if(e.getButton() == MouseButton.SECONDARY) {
                 prevIndex = -1;
             }
@@ -258,8 +264,9 @@ public class GameController extends BorderPane {
         turnText.setFont(Font.font(15.0));
         errorText.setFont(Font.font(15.0));
         errorText.setFill(Color.RED);
+        playingColor.setText("Playing as: " + (client.getColor() == Color.RED ? "RED" : "BLUE"));
 
-        VBox vbox = new VBox(topMenu, group, turnText, errorText);
+        VBox vbox = new VBox(topMenu, group, playingColor, playingAgainst, turnText, errorText);
         vbox.setAlignment(Pos.CENTER);
 
         setMinSize(800, 800);
@@ -299,15 +306,15 @@ public class GameController extends BorderPane {
         });
     }
 
-    public GameController(Client client, ByteBuffer board) {
+    public GameController(Client client, ByteBuffer gameInfo) {
         this.client = client;
         this.service.execute(new OpponentThread(this, client));
         makeGUI();
 
-        int size = board.remaining();
+        int boardSize = 24;
 
-        for(int i = 0; i < size; ++i) {
-            byte b = board.get();
+        for(int i = 0; i < boardSize; ++i) {
+            byte b = gameInfo.get();
             if(b == 0) {
                 continue;
             }
@@ -315,6 +322,12 @@ public class GameController extends BorderPane {
             Color c = b == 1 ? Color.RED : Color.BLUE;
             circles.get(i).setFill(c);
         }
+
+        byte[] nameBuffer = new byte[gameInfo.remaining()];
+        gameInfo.get(nameBuffer);
+
+        String opponentName = new String(nameBuffer, StandardCharsets.UTF_8);
+        playingAgainst.setText("Playing against: " + opponentName);
     }
 
     public Circle getCircle(int index) { 
@@ -340,7 +353,7 @@ public class GameController extends BorderPane {
     }
 
     private void circleClicked(MouseEvent e, int index) {
-        errorText.setText("");
+        // errorText.setText("");
         if(e.getButton() == MouseButton.SECONDARY) {
             prevIndex = -1;
             return;
@@ -348,11 +361,14 @@ public class GameController extends BorderPane {
 
         Machine.State state = client.getMachine().getState();
 
-        if(state == State.GAME_MOVE_OPP || state == State.GAME_PUT_OPP || state == State.GAME_TAKE_OPP || state == State.GAME_OVER) {
+        if(state == Machine.State.GAME_MOVE_OPP || state == Machine.State.GAME_PUT_OPP || state == Machine.State.GAME_TAKE_OPP || state == Machine.State.GAME_OVER) {
+            System.out.println("not your turn!");
             errorText.setText("It's not your turn!");
+            System.out.println(errorText.getText());
+            return;
         }
 
-        if(prevIndex == -1 && client.getMachine().getState() == State.GAME_MOVE) {
+        if(prevIndex == -1 && client.getMachine().getState() == Machine.State.GAME_MOVE) {
             prevIndex = index;
             return;
         }
@@ -361,26 +377,25 @@ public class GameController extends BorderPane {
             @Override
             protected Message call() throws Exception {
                 switch(client.getMachine().getState()) {
-                    case GAME_MOVE:
-                    case GAME_MOVE_OPP: {
+                    case GAME_MOVE: {
                         System.out.println("move");
                         client.send(new Message(MessageType.PLAYER_MV, ByteBuffer.allocate(2*Integer.BYTES).putInt(prevIndex).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
-                    case GAME_PUT:
-                    case GAME_PUT_OPP: {
+                    case GAME_PUT: {
                         System.out.println("put");
                         client.send(new Message(MessageType.PLAYER_PUT, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
-                    case GAME_TAKE:
-                    case GAME_TAKE_OPP: {
+                    case GAME_TAKE: {
                         System.out.println("take");
                         client.send(new Message(MessageType.PLAYER_TAKE, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
+
+                    default: {}
                 }
 
                 return null;
@@ -391,7 +406,10 @@ public class GameController extends BorderPane {
             Message msg = task.getValue();
             switch(msg.type()) {
                 case NOK: {
-                    // TODO: handle rejection
+                    if(msg.data().length > 0) {
+                        String message = new String(msg.data(), StandardCharsets.UTF_8);
+                        errorText.setText(message);
+                    }
                 } break;
                 case OK: {
                     if(state == State.GAME_TAKE) {
@@ -405,6 +423,8 @@ public class GameController extends BorderPane {
                     }
 
                 } break;
+
+                default: {}
             }
         });
 

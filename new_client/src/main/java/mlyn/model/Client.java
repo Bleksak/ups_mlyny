@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -74,92 +73,96 @@ public class Client extends Thread {
     public void run() {
         while(running) {
             if(socket.isConnected()) {
-                splitMessages(readAll());
+                readMessage();
+            }
+            
+            try {
+                Thread.sleep(20);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
     }
 
-    // public List<Byte> readAll() {
-    //     List<Byte> bytes = new ArrayList<>();
-
-    //     try {
-    //         byte[] byteArray = new byte[512];
-    //         int read = is.read(byteArray, 0, byteArray.length);
-
-    //         for(int i = 0; i < read; ++i) {
-    //             bytes.add(byteArray[i]);
-    //         }
-
-    //         if(read < 0) {
-    //             return null;
-    //         }
-
-    //         while(true) {
-    //             byteArray = new byte[512];
-
-    //             if(is.available() <= 0) {
-    //                 return bytes;
-    //             }
-
-    //             read = is.read(byteArray, 0, byteArray.length);
-
-    //             for(int i = 0; i < read; ++i) {
-    //                 bytes.add(byteArray[i]);
-    //             }
-
-    //             if(bytes.size() > readLimit) {
-    //                 return bytes;
-    //             }
-
-    //             if(read <= 0) {
-    //                 return bytes;
-    //             }
-    //         }
-
-    //     } catch(IOException e) {
-    //         return null;
-    //     }
-    // }
-
     private Integer readInt() throws IOException {
-        byte[] bytes = new byte[Integer.BYTES];
 
-        int read = is.read(bytes);
-        if(read != Integer.BYTES) {
+        byte[] bytes = is.readNBytes(Integer.BYTES);
+        if(bytes.length != Integer.BYTES) {
             return null;
         }
 
-        return ByteBuffer.wrap(bytes).getInt();
+        return ByteBuffer.wrap(bytes).getInt() - Integer.BYTES;
     }
 
-    public void readAll() {
+    public void readMessage() {
         try {
-            Integer size = readInt();
-            if(size == null) {
+            Integer sizeInteger = readInt();
+            if(sizeInteger == null || sizeInteger.intValue() <= 0) {
+                System.out.println("message size == 0");
                 messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
                 return;
             }
 
+            int size = sizeInteger.intValue();
+
             if(size > readLimit) {
-                int bytes = is.available();
-                for(int i = 0; i < size && is.available() > 0; ++i) {
-                    int read = is.read();
-                    if(read == -1) {
-                        return null;
-                    }
-                }
-                
-                return null;
+                System.out.println(size);
+                System.out.println("message is too long!");
+                // message too long
+                return;
             }
 
-            byte[] nnnn = is.readNBytes(size);
+            byte[] message = is.readNBytes(size);
+            if(message.length != size) {
+                System.out.println("message length != message size");
+                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
+                return;
+            }
+            ByteBuffer buffer = ByteBuffer.wrap(message);
 
+            int remaining = buffer.remaining();
+            if(remaining < Integer.BYTES) {
+                // message too short
+                System.out.println("message too short");
+                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
+                return;
+            }
 
+            int typeInt = buffer.getInt();
+            MessageType type = MessageType.valueOf(typeInt);
+
+            if(type == MessageType.INVALID) {
+                // invalid message
+                System.out.println("invalid message");
+                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
+                return;
+            }
+
+            System.out.println(size);
+
+            int dataLength = size - Integer.BYTES;
+
+            byte[] data = new byte[dataLength];
+
+            if(dataLength > 0) {
+                buffer.get(data);
+            }
+
+            if(type == MessageType.PING) {
+                sendQueue.add(new Message(type, data));
+                return;
+            }
+
+            if(type == MessageType.PONG) {
+                return;
+            }
+
+            System.out.println("message read ok");
+            System.out.println("Adding: " + type.name());
+            messageQueue.add(new Message(type, data));
         } catch(IOException e) {
-            return null;
+            return;
         }
-
-        return bytes;
     }
 
     void splitMessages(List<Byte> byteList) {
@@ -173,45 +176,6 @@ public class Client extends Thread {
             bytes[i] = byteList.get(i).byteValue();
         }
 
-        ByteBuffer buffer = ByteBuffer.wrap(bytes);
-
-        while(true) {
-            int remaining = buffer.remaining();
-            if(remaining < 2 * Integer.BYTES) {
-                break;
-            }
-
-            int size = buffer.getInt() - 2 * Integer.BYTES;
-            if(size < 0) {
-                continue;
-            }
-
-            int typeInt = buffer.getInt();
-            MessageType type = MessageType.valueOf(typeInt);
-
-            if(type == MessageType.INVALID) {
-                continue;
-            }
-
-            if(buffer.remaining() < size) {
-                continue;
-            }
-
-            byte[] data = new byte[size];
-            buffer.get(data);
-
-            if(type == MessageType.PING) {
-                sendQueue.add(new Message(type, data));
-                continue;
-            }
-
-            if(type == MessageType.PONG) {
-                // TODO: handle pong
-                continue;
-            }
-
-            messageQueue.add(new Message(type, data));
-        }
     }
 
     public void send(Message msg) throws IOException {
