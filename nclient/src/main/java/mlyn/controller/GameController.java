@@ -379,19 +379,19 @@ public class GameController extends BorderPane {
                 switch(client.getMachine().getState()) {
                     case GAME_MOVE: {
                         System.out.println("move");
-                        client.send(new Message(MessageType.PLAYER_MV, ByteBuffer.allocate(2*Integer.BYTES).putInt(prevIndex).putInt(index).array()));
+                        client.sendMessage(new Message(MessageType.PLAYER_MV, ByteBuffer.allocate(2*Integer.BYTES).putInt(prevIndex).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
                     case GAME_PUT: {
                         System.out.println("put");
-                        client.send(new Message(MessageType.PLAYER_PUT, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
+                        client.sendMessage(new Message(MessageType.PLAYER_PUT, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
                     case GAME_TAKE: {
                         System.out.println("take");
-                        client.send(new Message(MessageType.PLAYER_TAKE, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
+                        client.sendMessage(new Message(MessageType.PLAYER_TAKE, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 

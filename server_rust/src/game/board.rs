@@ -149,6 +149,11 @@ impl Board {
         } else {
             Color::Red
         };
+        
+        let cnt = guard.iter().filter(|x| **x == color).count();
+        if cnt <= 3 {
+            return false;
+        }
 
         for (index, item) in guard.iter().enumerate() {
             if *item != color {
@@ -161,8 +166,8 @@ impl Board {
                 }
             }
 
-            for neighbor_x in NEIGHBORS[index].0.iter() {
-                if *guard.get(*neighbor_x).unwrap() == Color::Neutral {
+            for neighbor_y in NEIGHBORS[index].1.iter() {
+                if *guard.get(*neighbor_y).unwrap() == Color::Neutral {
                     return false;
                 }
             }

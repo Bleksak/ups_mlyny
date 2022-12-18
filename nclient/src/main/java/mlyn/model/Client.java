@@ -3,6 +3,7 @@ package mlyn.model;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -10,7 +11,15 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javafx.scene.paint.Color;
 
+class Ping {
+    public long start;
+    public long sleep;
+    public boolean pinged;
+}
+
 public class Client extends Thread {
+    private String ip;
+    private short port;
     private Socket socket;
     private InputStream is;
     private OutputStream os;
@@ -21,14 +30,23 @@ public class Client extends Thread {
 
     private boolean running = true;
 
+    private Ping ping;
+
     ConcurrentLinkedQueue<Message> messageQueue = new ConcurrentLinkedQueue<>();
     ConcurrentLinkedQueue<Message> sendQueue = new ConcurrentLinkedQueue<>();
 
     public Client(String ip, short port) throws IOException {
-        socket = new Socket(ip, port);
+        this.ip = ip;
+        this.port = port;
+
+        socket = new Socket();
+        socket.connect(new InetSocketAddress(ip, port), 5000);
+        socket.setSoTimeout(1000);
+        ping = new Ping();
 
         is = socket.getInputStream();
         os = socket.getOutputStream();
+
         this.start();
     }
 
@@ -62,9 +80,15 @@ public class Client extends Thread {
                 return false;
             }
 
-            socket = new Socket(Config.ip, Config.port);
+            socket = new Socket();
+            socket.connect(new InetSocketAddress(ip, port), 5000);
+            socket.setSoTimeout(1000);
+            ping = new Ping();
+
             is = socket.getInputStream();
             os = socket.getOutputStream();
+
+            sendMessage(new Message(MessageType.PING, null));
         }
 
         return true;
@@ -73,6 +97,20 @@ public class Client extends Thread {
     public void run() {
         while(running) {
             if(socket.isConnected()) {
+                synchronized(ping) {
+                    if(!ping.pinged && System.currentTimeMillis() - ping.sleep >= 3000) {
+                        System.out.println("sending ping");
+                        sendMessage(new Message(MessageType.PING, null));
+                        ping.pinged = true;
+                        ping.start = System.currentTimeMillis();
+                    }
+                }
+
+                try {
+                    sendMessages();
+                } catch(IOException ex) {
+                }
+                catch(InterruptedException e) {}
                 readMessage();
             }
             
@@ -81,6 +119,22 @@ public class Client extends Thread {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+        }
+    }
+
+    private void sendMessages() throws IOException, InterruptedException {
+        synchronized(this.sendQueue) {
+            while(!sendQueue.isEmpty()) {
+                Message msg = sendQueue.remove();
+                send(msg);
+                Thread.sleep(80);
+            }
+        }
+    }
+
+    public void sendMessage(Message msg) {
+        synchronized(sendQueue) {
+            sendQueue.add(msg);
         }
     }
 
@@ -149,11 +203,17 @@ public class Client extends Thread {
             }
 
             if(type == MessageType.PING) {
-                sendQueue.add(new Message(type, data));
+                sendMessage(new Message(MessageType.PONG, data));
                 return;
             }
 
+
             if(type == MessageType.PONG) {
+                System.out.println("got pong");
+                synchronized(ping) {
+                    ping.sleep = System.currentTimeMillis();
+                    ping.pinged = false;
+                }
                 return;
             }
 
@@ -175,18 +235,24 @@ public class Client extends Thread {
         for(int i = 0; i < byteList.size(); ++i) {
             bytes[i] = byteList.get(i).byteValue();
         }
-
     }
 
-    public void send(Message msg) throws IOException {
+    private void send(Message msg) throws IOException {
         System.out.println("sending msg: " + msg.type().name());
         os.write(msg.serialize());
+        os.flush();
     }
 
     public Message getMessage(MessageType... types) throws InterruptedException {
         while(true) {
             if(Thread.currentThread().isInterrupted()) {
                 throw new InterruptedException();
+            }
+
+            synchronized(ping) {
+                if(ping.pinged && System.currentTimeMillis() - ping.start >= 5000) {
+                    return new Message(MessageType.SERVER_CRASH, null);
+                }
             }
 
             synchronized(this.messageQueue) {
@@ -204,6 +270,8 @@ public class Client extends Thread {
                     }
                 }
             }
+
+            Thread.sleep(100);
         }
     }
 }

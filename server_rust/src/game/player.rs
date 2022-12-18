@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, Weak};
+use std::{sync::{Arc, Mutex, Weak}, time::Instant};
 
 use crate::{
     machine::{Machine, State},
@@ -16,6 +16,8 @@ pub struct Player {
     board_cnt: Mutex<usize>,
     machine: Arc<Machine>,
     game: Mutex<Weak<Game>>,
+    ping_timer: Mutex<Instant>,
+    rest_timer: Mutex<Option<Instant>>,
 }
 
 impl Player {
@@ -28,7 +30,26 @@ impl Player {
             board_cnt: Mutex::new(0),
             machine: Arc::new(Machine::new(state)),
             game: Mutex::new(Weak::new()),
+            ping_timer: Mutex::new(Instant::now()),
+            rest_timer: Mutex::new(Some(Instant::now())),
         }
+    }
+    
+    pub fn rest_timer(&self) -> Option<Instant> {
+        self.rest_timer.lock().unwrap().clone()
+    }
+    
+    pub fn rest(&self) {
+        *self.rest_timer.lock().unwrap() = Some(Instant::now());
+    }
+    
+    pub fn ping_timer(&self) -> Instant {
+        self.ping_timer.lock().unwrap().clone()
+    }
+    
+    pub fn update_ping_timer(&self) {
+        *self.ping_timer.lock().unwrap() = Instant::now();
+        *self.rest_timer.lock().unwrap() = None;
     }
 
     pub fn machine(&self) -> Arc<Machine> {

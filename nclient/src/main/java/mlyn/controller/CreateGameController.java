@@ -15,7 +15,7 @@ public class CreateGameController extends LobbyView {
 
     public CreateGameController(Client client, String username) throws IOException {
         super(client);
-        client.send(new Message(MessageType.PLAYER_INIT_CREATE, username.getBytes(StandardCharsets.UTF_8)));
+        client.sendMessage(new Message(MessageType.PLAYER_INIT_CREATE, username.getBytes(StandardCharsets.UTF_8)));
 
         Task<Message> createTask = new Task<Message>() {
             @Override

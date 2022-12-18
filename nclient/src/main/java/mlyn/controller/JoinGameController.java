@@ -19,7 +19,7 @@ public class JoinGameController extends LobbyView {
 
     public JoinGameController(Client client, String username) throws IOException {
         super(client);
-        client.send(new Message(MessageType.PLAYER_INIT_JOIN, username.getBytes(StandardCharsets.UTF_8)));
+        client.sendMessage(new Message(MessageType.PLAYER_INIT_JOIN, username.getBytes(StandardCharsets.UTF_8)));
 
         Task<Message> receiverTask = new Task<Message>() {
             @Override

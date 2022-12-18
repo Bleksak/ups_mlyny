@@ -11,18 +11,20 @@ use crate::machine::Machine;
 
 pub struct MessageReceiver {
     games: Arc<Mutex<Vec<Arc<Game>>>>,
-    players: Mutex<HashMap<i32, Weak<Player>>>,
+    players: Arc<Mutex<HashMap<i32, Weak<Player>>>>,
     disconnect_channel: Sender<Weak<Client>>,
     last_deletion_cycle: Instant,
+    ping_cycle: Instant,
 }
 
 impl MessageReceiver {
     pub fn new(disconnect_channel: Sender<Weak<Client>>) -> Self {
         Self {
             games: Arc::new(Mutex::new(vec![])),
-            players: Mutex::new(HashMap::new()),
+            players: Arc::new(Mutex::new(HashMap::new())),
             disconnect_channel,
             last_deletion_cycle: Instant::now(),
+            ping_cycle: Instant::now(),
         }
     }
 
@@ -39,18 +41,62 @@ impl MessageReceiver {
 
         None
     }
+    
+    fn ping_all(players: Arc<Mutex<HashMap<i32, Weak<Player>>>>) {
+        for (_, player) in players.lock().unwrap().iter() {
+            if let Some(player) = player.upgrade() {
+                
+                if let Some(rest_timer) = player.rest_timer() {
+                    if rest_timer.elapsed().as_secs() >= 3 {
+                        if let Some(client) = player.client().upgrade() {
+                            if let Ok(_) = client.write(&Message::Ping.serialize()) {
+                                println!("pinged!");
+                                player.update_ping_timer();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-    pub fn deletion_cycle_proc(games: Arc<Mutex<Vec<Arc<Game>>>>) {
-        let mut indices = vec![];
+    fn deletion_cycle_proc(games: Arc<Mutex<Vec<Arc<Game>>>>, players: Arc<Mutex<HashMap<i32, Weak<Player>>>>) {
+        let mut indices_games = vec![];
+        let mut indices_players = vec![];
         let mut games = games.lock().unwrap();
         for (index, game) in games.iter().enumerate() {
             if game.can_delete() {
-                indices.push(index);
+                indices_games.push(index);
+                
+                for player in game.players() {
+                    if let Some(client) = player.client().upgrade() {
+                        indices_players.push(client.sock_fd());
+                    }
+                }
             }
         }
-
-        for index in indices.iter().rev() {
+        
+        for index in indices_games.iter().rev() {
             games.remove(*index);
+        }
+        
+        let mut lock = players.lock().unwrap();
+        for player in indices_players {
+            lock.remove(&player);
+        }
+    }
+    
+    fn deletion_cycle_players(disconnect_channel: Sender<Weak<Client>>, players: Arc<Mutex<HashMap<i32, Weak<Player>>>>) {
+        for (_, player) in players.lock().unwrap().iter() {
+            if let Some(player) = player.upgrade() {
+                let timer = player.ping_timer();
+                if timer.elapsed().as_secs() >= 5 {
+                    if let (Some(game), Some(client)) = (player.game().upgrade(), player.client().upgrade()) {
+                        disconnect_channel.send(player.client()).unwrap();
+                        game.notify_disconnect(client);
+                    }
+                }
+            }
         }
     }
 
@@ -60,9 +106,20 @@ impl MessageReceiver {
 
     pub fn run(&mut self, channel: Receiver<(Arc<Client>, Message)>) {
         loop {
+            
+            if self.ping_cycle.elapsed().as_millis() >= 100 {
+                let players = self.players.clone();
+                spawn(|| Self::ping_all(players));
+                self.ping_cycle = Instant::now();
+            }
+            
             if self.last_deletion_cycle.elapsed().as_secs() >= 5 {
                 let games = self.games.clone();
-                spawn(|| Self::deletion_cycle_proc(games));
+                let players = self.players.clone();
+                spawn(|| Self::deletion_cycle_proc(games, players));
+                let players = self.players().clone();
+                let channel = self.disconnect_channel.clone();
+                spawn(|| Self::deletion_cycle_players(channel, players));
                 self.last_deletion_cycle = Instant::now();
             }
 
@@ -70,9 +127,19 @@ impl MessageReceiver {
                 match msg {
                     Message::Ping => {
                         if let Ok(_) = client.write(Message::Pong.serialize().as_slice()) {
-                            // println!("sent pong!");
+                            println!("sent pong");
+                            
+                            if let Some(player) = self.find_player(client.sock_fd()) {
+                                player.update_ping_timer();
+                            }
+                            
                         }
-                    }
+                    },
+                    Message::Pong => {
+                        if let Some(player) = self.find_player(client.sock_fd()) {
+                            player.update_ping_timer();
+                        }
+                    },
                     Message::Disconnect => {
                         if let Some(player) = self.find_player(client.sock_fd()) {
                             if let Some(game) = player.game().upgrade() {
@@ -94,7 +161,7 @@ impl MessageReceiver {
                 }
             }
 
-            std::thread::sleep(std::time::Duration::from_millis(40));
+            std::thread::sleep(std::time::Duration::from_millis(100));
         }
     }
 
@@ -102,7 +169,7 @@ impl MessageReceiver {
         &self.games
     }
 
-    pub fn players(&self) -> &Mutex<HashMap<i32, Weak<Player>>> {
-        &self.players
+    pub fn players(&self) -> Arc<Mutex<HashMap<i32, Weak<Player>>>> {
+        self.players.clone()
     }
 }

@@ -23,7 +23,6 @@ pub struct Game {
 }
 
 pub enum GameError {
-    // PlayerNotInGame,
     NotYourTurn,
     CannotMove,
     BadPosition,
@@ -34,7 +33,6 @@ pub enum GameError {
 impl GameError {
     pub fn to_string(self) -> String {
         match self {
-            // GameError::PlayerNotInGame => None,
             GameError::NotYourTurn => "It's not your turn".to_string(),
             GameError::CannotMove => "Cannot move".to_string(),
             GameError::BadPosition => "Invalid position".to_string(),
@@ -61,6 +59,10 @@ impl Game {
         }
 
         s
+    }
+    
+    pub fn players(&self) -> [Arc<Player>; 2] {
+        self.players.clone()
     }
 
     pub fn can_delete(&self) -> bool {
@@ -139,8 +141,9 @@ impl Game {
                     if name == username {
                         if player.client().upgrade().is_none() {
                             player.bind(Arc::downgrade(&client));
-
-                            let mut plock = receiver.players().lock().unwrap();
+                            
+                            let players = receiver.players();
+                            let mut plock = players.lock().unwrap();
                             let entry = plock.entry(client.sock_fd());
                             entry.or_insert(Arc::downgrade(player));
 
@@ -182,8 +185,9 @@ impl Game {
                     println!("Connecting {}", username);
                     player.set_name(username.to_string());
                     player.bind(Arc::downgrade(&client));
-
-                    let mut plock = receiver.players().lock().unwrap();
+                    
+                    let players = receiver.players();
+                    let mut plock = players.lock().unwrap();
                     let entry = plock.entry(client.sock_fd());
                     entry.or_insert(Arc::downgrade(player));
 
@@ -264,7 +268,7 @@ impl Game {
         }
 
         let opponent_index = (turn + 1) % 2;
-        self.board.mmove(pos, player.board() < 3)?;
+        self.board.mmove(pos, player.board() <= 3)?;
         let opponent = self.players.get(opponent_index).unwrap();
 
         if self.board.check_mill_vertical(pos.1, None)
