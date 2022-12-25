@@ -1,7 +1,7 @@
 use crate::{
     game::color::Color,
     machine::State,
-    server::{client::Client, message::Message, receiver::MessageReceiver},
+    server::{client::Client, message::{TextMessage, Serializable}, receiver::MessageReceiver},
 };
 
 use self::{board::Board, player::Player};
@@ -94,7 +94,7 @@ impl Game {
                     continue;
                 }
 
-                if let Ok(_) = player.write(&Message::Disconnect.serialize()) {
+                if let Ok(_) = player.write(&TextMessage::Disconnect.serialize()) {
                     println!("disconnect notification sent");
                 }
             }
@@ -111,14 +111,15 @@ impl Game {
         for (idx, player) in self.players.iter().enumerate() {
             if let Some(client) = player.client().upgrade() {
                 let msg = if count == 2 {
-                    Message::Ready(
+                    TextMessage::Ready(
                         player.machine().state(),
                         player.color(),
-                        self.board.serialize(),
+                        &self.board,
                         self.players[(idx + 1) % 2].name().unwrap(),
                     )
                 } else {
-                    Message::PlayerJoined
+                    TextMessage::PlayerJoined
+                    // Message::PlayerJoined
                 };
                 if let Ok(_) = client.write(&msg.serialize()) {
                     println!("player {} notified", player.name().as_ref().unwrap());

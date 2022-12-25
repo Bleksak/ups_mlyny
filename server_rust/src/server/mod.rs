@@ -8,46 +8,47 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
-use crate::server::message::Message;
+// use crate::server::message::Message;
 
 use self::client::{Client, SocketError};
+use self::message::{TextMessage, Serializable};
 use self::receiver::MessageReceiver;
 
-pub struct Server {
+pub struct Server<'a> {
     socket: TcpListener,
     clients: Vec<Arc<Client>>,
     client_channel: (Sender<Client>, Receiver<Client>),
-    recv_channel: Sender<(Arc<Client>, Message)>,
+    recv_channel: Sender<(Arc<Client>, TextMessage<'a>)>,
     disconnect_channel: (Sender<Weak<Client>>, Receiver<Weak<Client>>),
 }
 
-impl Server {
+impl Server<'_> {
     fn process_request(
-        recv_channel: Sender<(Arc<Client>, Message)>,
+        recv_channel: Sender<(Arc<Client>, TextMessage)>,
         dc_channel: Sender<Weak<Client>>,
         client: Arc<Client>,
     ) {
         match client.read_all(Some(4096)) {
             Ok(data) => {
                 if data.len() != 0 {
-                    if let Some(message) = Message::deserialize(&data) {
+                    if let Some(message) = TextMessage::deserialize(&data) {
                         println!("{:?}", message);
                         recv_channel.send((client.clone(), message)).unwrap();
                     } else {
                         if client.bad_message() >= 10 {
                             dc_channel.send(Arc::downgrade(&client)).unwrap();
-                            recv_channel.send((client, Message::Disconnect)).unwrap();
+                            recv_channel.send((client, TextMessage::Disconnect)).unwrap();
                         }
                     }
                 } else {
                     dc_channel.send(Arc::downgrade(&client)).unwrap();
-                    recv_channel.send((client, Message::Disconnect)).unwrap();
+                    recv_channel.send((client, TextMessage::Disconnect)).unwrap();
                 }
             }
             Err(_err @ SocketError::LimitReached) => {
                 if client.bad_message() >= 10 {
                     dc_channel.send(Arc::downgrade(&client)).unwrap();
-                    recv_channel.send((client, Message::Disconnect)).unwrap();
+                    recv_channel.send((client, TextMessage::Disconnect)).unwrap();
                 }
             }
             Err(_) => {}

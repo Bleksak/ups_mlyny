@@ -1,4 +1,108 @@
-use crate::{game::color::Color, machine::State};
+use crate::{game::{color::Color, board::Board}, machine::State};
+use std::str;
+
+pub trait Serializable {
+    type Object;
+    
+    fn serialize(&self) -> Box<[u8]>;
+    fn deserialize(bytes: &[u8]) -> Option<Self::Object>;
+}
+
+#[derive(Debug, Clone)]
+    pub enum TextMessage <'a>{
+    Mok,
+    Nok(Option<String>),
+    Create(String),
+    Join(String),
+    Ready(State, Color, &'a Board, String),
+    Put(usize),
+    Take(usize),
+    Move(usize, usize),
+    Over,
+    Ping,
+    Pong,
+    PlayerJoined,
+    GameState(State),
+    Disconnect,
+}
+
+impl<'a> Serializable for TextMessage<'a> {
+    type Object = Self;
+    
+    fn serialize(&self) -> Box<[u8]> {
+        match self {
+            TextMessage::Mok => "2;OK".as_bytes().into(),
+            TextMessage::Nok(msg) => {
+                if let Some(msg) = msg {
+                    let len = msg.len() + 5;
+                    format!("{len};NOK;{msg}").as_bytes().into()
+                } else {
+                    "3;NOK".as_bytes().into()
+                }
+            },
+            TextMessage::Create(username) => format!("{};CREATE;{username}", username.len() + 8).as_bytes().into(),
+            TextMessage::Join(username) => format!("{};JOIN;{username}", username.len() + 6).as_bytes().into(),
+            TextMessage::Ready(state, color, board, opponent) => {
+                let state_string = (state.clone() as u32).to_string();
+                let len = opponent.len() + 24 + 1 + state_string.len() + 4 + 5;
+                format!("{len};READY;{state_string};{};{};{opponent}", color.serialize(), board.serialize()).as_bytes().into()
+            },
+            TextMessage::Put(position) => {
+                let pos_string = position.to_string();
+                format!("{};PUT;{pos_string}", pos_string.len() + 4).as_bytes().into()
+            },
+            TextMessage::Take(position) => {
+                let pos_string = position.to_string();
+                format!("{};TAKE;{pos_string}", pos_string.len() + 5).as_bytes().into()
+            },
+            TextMessage::Move(pos1, pos2) => {
+                let pos1_string = pos1.to_string();
+                let pos2_string = pos2.to_string();
+                
+                format!("{};MOVE;{pos1_string};{pos2_string}", pos1_string.len() + pos2_string.len() + 7).as_bytes().into()
+            },
+            TextMessage::Over => "4;OVER".as_bytes().into(),
+            TextMessage::Ping => "4;PING".as_bytes().into(),
+            TextMessage::Pong => "4;PONG".as_bytes().into(),
+            TextMessage::PlayerJoined => "6;JOINED".as_bytes().into(),
+            TextMessage::GameState(state) => {
+                let state_string = (state.clone() as u32).to_string();
+                format!("{};STATE;{state_string}", state_string.len() + 5).as_bytes().into()
+            },
+            TextMessage::Disconnect => "10;DISCONNECT".as_bytes().into(),
+        }
+    }
+    
+    fn deserialize(bytes: &[u8]) -> Option<Self::Object> {
+        let message = str::from_utf8(bytes).ok()?;
+        let whole_msg_len = message.len();
+        
+        let mut splitted = message.split(';');
+        
+        let len_str = splitted.nth(0)?;
+        let len_len = len_str.len() + 1;
+        
+        let len: usize = len_str.parse().ok()?;
+        
+        if whole_msg_len - len_len != len {
+            return None;
+        }
+        
+        match splitted.nth(1)? {
+            "OK" => Some(TextMessage::Mok),
+            "NOK" => Some(TextMessage::Nok(None)),
+            "CREATE" => Some(TextMessage::Create(splitted.nth(2)?.to_string())),
+            "JOIN" => Some(TextMessage::Join(splitted.nth(2)?.to_string())),
+            "PUT" => Some(TextMessage::Put(splitted.nth(2)?.parse().ok()?)),
+            "TAKE" => Some(TextMessage::Take(splitted.nth(2)?.parse().ok()?)),
+            "MOVE" => Some(TextMessage::Move(splitted.nth(2)?.parse().ok()?, splitted.nth(3)?.parse().ok()?)),
+            "PING" => Some(TextMessage::Ping),
+            "PONG" => Some(TextMessage::Pong),
+            "DISCONNECT" => Some(TextMessage::Disconnect),
+            _ => None
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -57,7 +161,7 @@ impl Message {
                 v.append(&mut u32::to_be_bytes(size).to_vec());
                 v.append(&mut u32::to_be_bytes(4).to_vec());
                 v.append(&mut u32::to_be_bytes(state as u32).to_vec());
-                v.append(&mut u8::to_be_bytes(color).to_vec());
+                // v.append(&mut u8::to_be_bytes(color).to_vec());
                 v.append(&mut board);
                 v.append(&mut opponent_name.into_bytes());
             }

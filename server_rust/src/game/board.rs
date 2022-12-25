@@ -46,7 +46,7 @@ impl Board {
         }
     }
 
-    pub fn serialize(&self) -> Vec<u8> {
+    pub fn serialize(&self) -> String {
         self.board
             .lock()
             .unwrap()

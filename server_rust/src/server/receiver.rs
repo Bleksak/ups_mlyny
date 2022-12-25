@@ -5,7 +5,7 @@ use std::thread::spawn;
 use std::time::Instant;
 
 use super::client::Client;
-use super::message::Message;
+use super::message::{TextMessage, Serializable};
 use crate::game::{player::Player, Game};
 use crate::machine::Machine;
 
@@ -49,7 +49,7 @@ impl MessageReceiver {
                 if let Some(rest_timer) = player.rest_timer() {
                     if rest_timer.elapsed().as_secs() >= 3 {
                         if let Some(client) = player.client().upgrade() {
-                            if let Ok(_) = client.write(&Message::Ping.serialize()) {
+                            if let Ok(_) = client.write(&TextMessage::Ping.serialize()) {
                                 println!("pinged!");
                                 player.update_ping_timer();
                             }
@@ -104,7 +104,7 @@ impl MessageReceiver {
         self.disconnect_channel.send(client).unwrap();
     }
 
-    pub fn run(&mut self, channel: Receiver<(Arc<Client>, Message)>) {
+    pub fn run(&mut self, channel: Receiver<(Arc<Client>, TextMessage)>) {
         loop {
             
             if self.ping_cycle.elapsed().as_millis() >= 100 {
@@ -125,8 +125,8 @@ impl MessageReceiver {
 
             while let Ok((client, msg)) = channel.try_recv() {
                 match msg {
-                    Message::Ping => {
-                        if let Ok(_) = client.write(Message::Pong.serialize().as_slice()) {
+                    TextMessage::Ping => {
+                        if let Ok(_) = client.write(&TextMessage::Pong.serialize()) {
                             println!("sent pong");
                             
                             if let Some(player) = self.find_player(client.sock_fd()) {
@@ -135,12 +135,12 @@ impl MessageReceiver {
                             
                         }
                     },
-                    Message::Pong => {
+                    TextMessage::Pong => {
                         if let Some(player) = self.find_player(client.sock_fd()) {
                             player.update_ping_timer();
                         }
                     },
-                    Message::Disconnect => {
+                    TextMessage::Disconnect => {
                         if let Some(player) = self.find_player(client.sock_fd()) {
                             if let Some(game) = player.game().upgrade() {
                                 game.notify_disconnect(client);
