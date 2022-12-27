@@ -98,14 +98,14 @@ public class Client extends Thread {
     public void run() {
         while(running) {
             if(socket.isConnected()) {
-                // synchronized(ping) {
-                //     if(!ping.pinged && System.currentTimeMillis() - ping.sleep >= 3000) {
-                //         System.out.println("sending ping");
-                //         sendMessage(new Message(MessageType.PING, ""));
-                //         ping.pinged = true;
-                //         ping.start = System.currentTimeMillis();
-                //     }
-                // }
+                synchronized(ping) {
+                    if(!ping.pinged && System.currentTimeMillis() - ping.sleep >= 3000) {
+                        System.out.println("sending ping");
+                        sendMessage(new Message(MessageType.PING, ""));
+                        ping.pinged = true;
+                        ping.start = System.currentTimeMillis();
+                    }
+                }
 
                 try {
                     sendMessages();
@@ -264,14 +264,13 @@ public class Client extends Thread {
             }
 
 
-            // if(type == MessageType.PONG) {
-            //     System.out.println("got pong");
-            //     synchronized(ping) {
-            //         ping.sleep = System.currentTimeMillis();
-            //         ping.pinged = false;
-            //     }
-            //     return;
-            // }
+            if(type == MessageType.PONG) {
+                synchronized(ping) {
+                    ping.sleep = System.currentTimeMillis();
+                    ping.pinged = false;
+                }
+                return;
+            }
 
             String[] data = Arrays.copyOfRange(splitted, 1, splitted.length);
 
@@ -317,11 +316,11 @@ public class Client extends Thread {
                 throw new InterruptedException();
             }
 
-            // synchronized(ping) {
-            //     if(ping.pinged && System.currentTimeMillis() - ping.start >= 5000) {
-            //         return new Message(MessageType.CRASH, "");
-            //     }
-            // }
+            synchronized(ping) {
+                if(ping.pinged && System.currentTimeMillis() - ping.start >= 5000) {
+                    return new Message(MessageType.CRASH, "");
+                }
+            }
 
             synchronized(this.messageQueue) {
                 if(messageQueue.isEmpty()) {
