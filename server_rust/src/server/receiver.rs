@@ -45,7 +45,6 @@ impl MessageReceiver {
     fn ping_all(players: Arc<Mutex<HashMap<i32, Weak<Player>>>>) {
         for (_, player) in players.lock().unwrap().iter() {
             if let Some(player) = player.upgrade() {
-                
                 if let Some(rest_timer) = player.rest_timer() {
                     if rest_timer.elapsed().as_secs() >= 3 {
                         if let Some(client) = player.client().upgrade() {
@@ -71,6 +70,7 @@ impl MessageReceiver {
                 for player in game.players() {
                     if let Some(client) = player.client().upgrade() {
                         indices_players.push(client.sock_fd());
+                        println!("delete: {}", client.sock_fd());
                     }
                 }
             }
@@ -80,23 +80,32 @@ impl MessageReceiver {
             games.remove(*index);
         }
         
-        let mut lock = players.lock().unwrap();
+        let mut players= players.lock().unwrap();
         for player in indices_players {
-            lock.remove(&player);
+            players.remove(&player);
         }
     }
     
     fn deletion_cycle_players(disconnect_channel: Sender<Weak<Client>>, players: Arc<Mutex<HashMap<i32, Weak<Player>>>>) {
-        for (_, player) in players.lock().unwrap().iter() {
+        let mut to_delete = vec![];
+        let cloned = players.clone();
+        for (sock, player) in players.lock().unwrap().iter() {
             if let Some(player) = player.upgrade() {
                 let timer = player.ping_timer();
-                if timer.elapsed().as_secs() >= 5 {
+                if player.rest_timer().is_none() && timer.elapsed().as_secs() >= 5 {
                     if let (Some(game), Some(client)) = (player.game().upgrade(), player.client().upgrade()) {
                         disconnect_channel.send(player.client()).unwrap();
                         game.notify_disconnect(client);
                     }
                 }
+            } else {
+                to_delete.push(*sock);
             }
+        }
+        
+        let mut lock = cloned.lock().unwrap();
+        for sock in to_delete {
+            lock.remove(&sock);
         }
     }
 
@@ -116,10 +125,10 @@ impl MessageReceiver {
             if self.last_deletion_cycle.elapsed().as_secs() >= 5 {
                 let games = self.games.clone();
                 let players = self.players.clone();
-                spawn(|| Self::deletion_cycle_proc(games, players));
+                Self::deletion_cycle_proc(games, players);
                 let players = self.players().clone();
                 let channel = self.disconnect_channel.clone();
-                spawn(|| Self::deletion_cycle_players(channel, players));
+                Self::deletion_cycle_players(channel, players);
                 self.last_deletion_cycle = Instant::now();
             }
 
@@ -131,20 +140,24 @@ impl MessageReceiver {
                             
                             if let Some(player) = self.find_player(client.sock_fd()) {
                                 player.update_ping_timer();
+                                player.rest();
                             }
-                            
                         }
                     },
                     TextMessage::Pong => {
                         if let Some(player) = self.find_player(client.sock_fd()) {
                             player.update_ping_timer();
+                            player.rest();
                         }
                     },
                     TextMessage::Disconnect => {
                         if let Some(player) = self.find_player(client.sock_fd()) {
                             if let Some(game) = player.game().upgrade() {
-                                game.notify_disconnect(client);
+                                game.notify_disconnect(client.clone());
                             }
+                            
+                            let fd = client.sock_fd();
+                            self.players.lock().unwrap().remove(&fd);
                         }
                     }
 

@@ -5,7 +5,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -88,7 +89,7 @@ public class Client extends Thread {
             is = socket.getInputStream();
             os = socket.getOutputStream();
 
-            sendMessage(new Message(MessageType.PING, null));
+            sendMessage(new Message(MessageType.PING, ""));
         }
 
         return true;
@@ -97,14 +98,14 @@ public class Client extends Thread {
     public void run() {
         while(running) {
             if(socket.isConnected()) {
-                synchronized(ping) {
-                    if(!ping.pinged && System.currentTimeMillis() - ping.sleep >= 3000) {
-                        System.out.println("sending ping");
-                        sendMessage(new Message(MessageType.PING, null));
-                        ping.pinged = true;
-                        ping.start = System.currentTimeMillis();
-                    }
-                }
+                // synchronized(ping) {
+                //     if(!ping.pinged && System.currentTimeMillis() - ping.sleep >= 3000) {
+                //         System.out.println("sending ping");
+                //         sendMessage(new Message(MessageType.PING, ""));
+                //         ping.pinged = true;
+                //         ping.start = System.currentTimeMillis();
+                //     }
+                // }
 
                 try {
                     sendMessages();
@@ -138,22 +139,65 @@ public class Client extends Thread {
         }
     }
 
-    private Integer readInt() throws IOException {
+    private Integer readLen() throws IOException {
+        StringBuilder chars = new StringBuilder();
 
-        byte[] bytes = is.readNBytes(Integer.BYTES);
-        if(bytes.length != Integer.BYTES) {
+        if(is.available() <= 1) {
+            return -1;
+        }
+
+        while(true) {
+            int read = is.read();
+
+            if(read == -1) {
+                return null;
+            }
+
+            if((char) read == ';') {
+                break;
+            }
+
+            if((char) read == '\n') {
+                return -1;
+            }
+
+            if(chars.length() >= 4) {
+                return null;
+            }
+
+            chars.append((char)read);
+        }
+
+        try {
+            int value = Integer.parseInt(chars.toString());
+            if(value <= 0) {
+                return null;
+            }
+
+            return value;
+        } catch(NumberFormatException e) {
             return null;
         }
 
-        return ByteBuffer.wrap(bytes).getInt() - Integer.BYTES;
+        // byte[] bytes = is.readNBytes(Integer.BYTES);
+        // if(bytes.length != Integer.BYTES) {
+        //     return null;
+        // }
+
+        // return ByteBuffer.wrap(bytes).getInt() - Integer.BYTES;
     }
 
     public void readMessage() {
         try {
-            Integer sizeInteger = readInt();
-            if(sizeInteger == null || sizeInteger.intValue() <= 0) {
+            Integer sizeInteger = readLen();
+
+            if(sizeInteger == null || sizeInteger.intValue() == 0) {
                 System.out.println("message size == 0");
-                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
+                messageQueue.add(new Message(MessageType.CRASH, ""));
+                return;
+            }
+
+            if(sizeInteger.intValue() == -1) {
                 return;
             }
 
@@ -162,62 +206,85 @@ public class Client extends Thread {
             if(size > readLimit) {
                 System.out.println(size);
                 System.out.println("message is too long!");
-                // message too long
+                messageQueue.add(new Message(MessageType.CRASH, ""));
                 return;
             }
 
             byte[] message = is.readNBytes(size);
             if(message.length != size) {
                 System.out.println("message length != message size");
-                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
-                return;
-            }
-            ByteBuffer buffer = ByteBuffer.wrap(message);
-
-            int remaining = buffer.remaining();
-            if(remaining < Integer.BYTES) {
-                // message too short
-                System.out.println("message too short");
-                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
+                messageQueue.add(new Message(MessageType.CRASH, ""));
                 return;
             }
 
-            int typeInt = buffer.getInt();
-            MessageType type = MessageType.valueOf(typeInt);
+            String msgString = new String(message, StandardCharsets.UTF_8);
+            if(msgString.charAt(msgString.length() - 1) == '\n') {
+                msgString = msgString.substring(0, msgString.length() - 1);
+            }
+
+            System.out.println("GOT MESSAGE: " + msgString);
+
+            String[] splitted = msgString.split(";");
+
+            // ByteBuffer buffer = ByteBuffer.wrap(message);
+
+            // int remaining = buffer.remaining();
+            // if(remaining < Integer.BYTES) {
+            //     // message too short
+            //     System.out.println("message too short");
+            //     messageQueue.add(new Message(MessageType.CRASH, (byte[][])null));
+            //     return;
+            // }
+
+            String typeString = splitted[0];
+
+            // int typeInt = buffer.getInt();
+            MessageType type = MessageType.valueOfString(typeString);
 
             if(type == MessageType.INVALID) {
                 // invalid message
                 System.out.println("invalid message");
-                messageQueue.add(new Message(MessageType.SERVER_CRASH, null));
+                messageQueue.add(new Message(MessageType.CRASH, ""));
                 return;
             }
 
             System.out.println(size);
 
-            int dataLength = size - Integer.BYTES;
+            // int dataLength = size - Integer.BYTES;
 
-            byte[] data = new byte[dataLength];
+            // byte[] data = new byte[dataLength];
 
-            if(dataLength > 0) {
-                buffer.get(data);
-            }
+            // if(dataLength > 0) {
+            //     buffer.get(data);
+            // }
 
             if(type == MessageType.PING) {
-                sendMessage(new Message(MessageType.PONG, data));
+                sendMessage(new Message(MessageType.PONG, ""));
                 return;
             }
 
 
-            if(type == MessageType.PONG) {
-                System.out.println("got pong");
-                synchronized(ping) {
-                    ping.sleep = System.currentTimeMillis();
-                    ping.pinged = false;
-                }
-                return;
-            }
+            // if(type == MessageType.PONG) {
+            //     System.out.println("got pong");
+            //     synchronized(ping) {
+            //         ping.sleep = System.currentTimeMillis();
+            //         ping.pinged = false;
+            //     }
+            //     return;
+            // }
+
+            String[] data = Arrays.copyOfRange(splitted, 1, splitted.length);
 
             System.out.println("message read ok");
+
+            Message msg = new Message(type, data);
+
+            if(!machine.validateMessage(msg)) {
+                System.out.println("bad message, crashing");
+                messageQueue.add(new Message(MessageType.CRASH, ""));
+                return;
+            }
+
             System.out.println("Adding: " + type.name());
             messageQueue.add(new Message(type, data));
         } catch(IOException e) {
@@ -227,7 +294,7 @@ public class Client extends Thread {
 
     void splitMessages(List<Byte> byteList) {
         if(byteList == null) {
-            messageQueue.add(new Message(MessageType.SERVER_CRASH, new byte[0]));
+            messageQueue.add(new Message(MessageType.CRASH, ""));
             return;
         }
 
@@ -238,8 +305,9 @@ public class Client extends Thread {
     }
 
     private void send(Message msg) throws IOException {
-        System.out.println("sending msg: " + msg.type().name());
-        os.write(msg.serialize());
+        byte[] serialized = msg.serialize();
+        System.out.println("sending msg: " + new String(serialized, StandardCharsets.UTF_8));
+        os.write(serialized);
         os.flush();
     }
 
@@ -249,11 +317,11 @@ public class Client extends Thread {
                 throw new InterruptedException();
             }
 
-            synchronized(ping) {
-                if(ping.pinged && System.currentTimeMillis() - ping.start >= 5000) {
-                    return new Message(MessageType.SERVER_CRASH, null);
-                }
-            }
+            // synchronized(ping) {
+            //     if(ping.pinged && System.currentTimeMillis() - ping.start >= 5000) {
+            //         return new Message(MessageType.CRASH, "");
+            //     }
+            // }
 
             synchronized(this.messageQueue) {
                 if(messageQueue.isEmpty()) {

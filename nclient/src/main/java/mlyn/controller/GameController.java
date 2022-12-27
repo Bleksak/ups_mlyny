@@ -1,6 +1,5 @@
 package mlyn.controller;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,37 +53,76 @@ class OpponentThread extends Thread {
     public void run() {
         try {
             while(true) {
-                Message msg = client.getMessage(MessageType.SERVER_CRASH, MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.GAME_STATE, MessageType.DISCONNECT, MessageType.OVER);
+                Message msg = client.getMessage(MessageType.CRASH, MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.STATE, MessageType.DISCONNECT, MessageType.OVER);
+                System.out.println("GOT MESSAGE" + new String(msg.serialize(), StandardCharsets.UTF_8));
                 switch(msg.type()) {
-                    case SERVER_CRASH: {
+                    case CRASH: {
                         controller.serverCrash();
                         return;
                     }
                     case PLAYER_PUT: {
-                        int index = ByteBuffer.wrap(msg.data()).getInt();
-                        Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
-                        controller.getCircle(index).setFill(opponentColor);
+                        Machine.State state = controller.client.getMachine().getState();
+                        if(state == Machine.State.GAME_MOVE_OPP || state == Machine.State.GAME_PUT_OPP || state == Machine.State.GAME_TAKE_OPP || state == Machine.State.GAME_OVER) {
+                            if(msg.data().length != 1) {
+                                controller.serverCrash();
+                            }
+
+                            int index = Integer.parseInt(msg.data()[0]);
+
+                            // int index = ByteBuffer.wrap(msg.data()).getInt();
+                            Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
+                            controller.getCircle(index).setFill(opponentColor);
+                        }
                     } break;
 
                     case PLAYER_TAKE: {
-                        int index = ByteBuffer.wrap(msg.data()).getInt();
-                        controller.getCircle(index).setFill(Color.BLACK);
+                        if(msg.data().length != 1) {
+                            controller.serverCrash();
+                        }
+
+                        Machine.State state = controller.client.getMachine().getState();
+                        if(state == Machine.State.GAME_MOVE_OPP || state == Machine.State.GAME_PUT_OPP || state == Machine.State.GAME_TAKE_OPP || state == Machine.State.GAME_OVER) {
+                            int index = Integer.parseInt(msg.data()[0]);
+                            // int index = ByteBuffer.wrap(msg.data()).getInt();
+                            controller.getCircle(index).setFill(Color.BLACK);
+                        }
                     } break;
 
                     case PLAYER_MV: {
-                        ByteBuffer buffer = ByteBuffer.wrap(msg.data());
-                        int oldIndex = buffer.getInt();
-                        int newIndex = buffer.getInt();
+                        if(msg.data().length != 2) {
+                            controller.serverCrash();
+                        }
 
-                        Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
-                        controller.getCircle(oldIndex).setFill(Color.BLACK);
-                        controller.getCircle(newIndex).setFill(opponentColor);
+                        Machine.State state = controller.client.getMachine().getState();
+                        if(state == Machine.State.GAME_MOVE_OPP || state == Machine.State.GAME_PUT_OPP || state == Machine.State.GAME_TAKE_OPP || state == Machine.State.GAME_OVER) {
+                            // ByteBuffer buffer = ByteBuffer.wrap(msg.data());
+                            System.out.println("player move: ");
+                            
+                            System.out.println(msg.data()[0]);
+                            System.out.println(msg.data()[1]);
+                            int oldIndex = Integer.parseInt(msg.data()[0]);
+                            int newIndex = Integer.parseInt(msg.data()[1]);
+                            // int oldIndex = buffer.getInt();
+                            // int newIndex = buffer.getInt();
+
+                            Color opponentColor = client.getColor() == Color.RED ? Color.BLUE : Color.RED;
+                            controller.getCircle(oldIndex).setFill(Color.BLACK);
+                            controller.getCircle(newIndex).setFill(opponentColor);
+                        }
                     } break;
 
-                    case GAME_STATE: {
+                    case STATE: {
                         if(msg.data().length > 0) {
-                            ByteBuffer buffer = ByteBuffer.wrap(msg.data());
-                            Machine.State newState = Machine.State.valueOf(buffer.getInt());
+                            
+                            // ByteBuffer buffer = ByteBuffer.wrap(msg.data());
+                            if(msg.data().length != 1) {
+                                controller.serverCrash();
+                            }
+
+                            System.out.println("SETTING STATE");
+                            
+
+                            Machine.State newState = Machine.State.valueOf(Integer.parseInt(msg.data()[0]));
                             client.getMachine().setState(newState);
                             System.out.println(newState.name());
                             controller.updateTurn();
@@ -106,6 +144,9 @@ class OpponentThread extends Thread {
         } catch(InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
+        catch (NumberFormatException ex) {
+            controller.serverCrash();
+        }
     }
 }
 
@@ -114,7 +155,7 @@ public class GameController extends BorderPane {
     private static Set<Integer> stones = Set.of(0, 3, 6, 8, 10, 12, 16, 17, 18, 21, 22, 23, 25, 26, 27, 30, 31, 32, 36, 38, 40, 42, 45, 48);
     private static int rows = 7;
     private static int cols = 7;
-    private Client client;
+    public Client client;
     private ExecutorService service = Executors.newFixedThreadPool(2);
     private List<Circle> circles = new ArrayList<>();
     private int prevIndex = -1;
@@ -293,20 +334,23 @@ public class GameController extends BorderPane {
 
         String redWin = "Red player wins!";
         String bluWin = "Blue player wins!";
+        String draw = "Game is a draw!";
 
         Platform.runLater(() -> {
             Alert alert = new Alert(AlertType.INFORMATION);
             if(redCount > blueCount) {
                 alert.setHeaderText(redWin);
-            } else {
+            } else if (blueCount > redCount){
                 alert.setHeaderText(bluWin);
+            } else {
+                alert.setHeaderText(draw);
             }
 
             alert.showAndWait().ifPresent(e -> quitClicked(null));
         });
     }
 
-    public GameController(Client client, ByteBuffer gameInfo) {
+    public GameController(Client client, String board, String opponent) {
         this.client = client;
         this.service.execute(new OpponentThread(this, client));
         makeGUI();
@@ -314,20 +358,16 @@ public class GameController extends BorderPane {
         int boardSize = 24;
 
         for(int i = 0; i < boardSize; ++i) {
-            byte b = gameInfo.get();
-            if(b == 0) {
+            char b = board.charAt(i);
+            if(b == '0') {
                 continue;
             }
 
-            Color c = b == 1 ? Color.RED : Color.BLUE;
+            Color c = b == '1' ? Color.RED : Color.BLUE;
             circles.get(i).setFill(c);
         }
 
-        byte[] nameBuffer = new byte[gameInfo.remaining()];
-        gameInfo.get(nameBuffer);
-
-        String opponentName = new String(nameBuffer, StandardCharsets.UTF_8);
-        playingAgainst.setText("Playing against: " + opponentName);
+        playingAgainst.setText("Playing against: " + opponent);
     }
 
     public Circle getCircle(int index) { 
@@ -354,12 +394,16 @@ public class GameController extends BorderPane {
 
     private void circleClicked(MouseEvent e, int index) {
         // errorText.setText("");
+
+        
         if(e.getButton() == MouseButton.SECONDARY) {
             prevIndex = -1;
             return;
         }
 
         Machine.State state = client.getMachine().getState();
+
+        System.out.println(state.name());
 
         if(state == Machine.State.GAME_MOVE_OPP || state == Machine.State.GAME_PUT_OPP || state == Machine.State.GAME_TAKE_OPP || state == Machine.State.GAME_OVER) {
             System.out.println("not your turn!");
@@ -379,19 +423,19 @@ public class GameController extends BorderPane {
                 switch(client.getMachine().getState()) {
                     case GAME_MOVE: {
                         System.out.println("move");
-                        client.sendMessage(new Message(MessageType.PLAYER_MV, ByteBuffer.allocate(2*Integer.BYTES).putInt(prevIndex).putInt(index).array()));
+                        client.sendMessage(new Message(MessageType.PLAYER_MV, Integer.toString(prevIndex), Integer.toString(index)));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
                     case GAME_PUT: {
                         System.out.println("put");
-                        client.sendMessage(new Message(MessageType.PLAYER_PUT, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
+                        client.sendMessage(new Message(MessageType.PLAYER_PUT, Integer.toString(index)));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
                     case GAME_TAKE: {
                         System.out.println("take");
-                        client.sendMessage(new Message(MessageType.PLAYER_TAKE, ByteBuffer.allocate(Integer.BYTES).putInt(index).array()));
+                        client.sendMessage(new Message(MessageType.PLAYER_TAKE, Integer.toString(index)));
                         return client.getMessage(MessageType.NOK, MessageType.OK);
                     }
 
@@ -407,8 +451,10 @@ public class GameController extends BorderPane {
             switch(msg.type()) {
                 case NOK: {
                     if(msg.data().length > 0) {
-                        String message = new String(msg.data(), StandardCharsets.UTF_8);
-                        errorText.setText(message);
+                        if(msg.data().length > 0) {
+                            String message = msg.data()[0];
+                            errorText.setText(message);
+                        }
                     }
                 } break;
                 case OK: {

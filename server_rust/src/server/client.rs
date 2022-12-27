@@ -24,7 +24,9 @@ impl Client {
     }
 
     pub fn write(&self, bytes: &[u8]) -> Result<(), io::Error> {
-        self.lock().unwrap().write_all(bytes)
+        let mut lock = self.lock().unwrap();
+        lock.write_all(bytes)?;
+        lock.flush()
     }
 
     pub fn read_all(&self, limit: Option<usize>) -> Result<Vec<u8>, SocketError> {

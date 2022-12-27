@@ -68,6 +68,7 @@ impl Game {
     pub fn can_delete(&self) -> bool {
         let s = self.destroy_timer_start.read().unwrap();
         if let Some(timer) = *s {
+            println!("timer: {}", timer.elapsed().as_secs());
             if timer.elapsed().as_secs() >= 30 {
                 return true;
             }
@@ -77,12 +78,17 @@ impl Game {
     }
 
     pub fn notify_disconnect(&self, client: Arc<Client>) {
+        println!("NOTIFYING DISCONNECT!");
         let connected_cnt = self
             .players
             .iter()
             .filter_map(|pl| pl.client().upgrade())
             .count();
-        if connected_cnt == 0 {
+            
+        println!("connected cnt: {}", connected_cnt);
+        
+        if connected_cnt == 1 {
+            println!("starting destryoy timer");
             *self.destroy_timer_start.write().unwrap() = Some(Instant::now());
         } else {
             for player in self
@@ -107,7 +113,9 @@ impl Game {
             .iter()
             .filter_map(|p| p.client().upgrade())
             .count();
-
+        
+        *self.destroy_timer_start.write().unwrap() = None;
+        
         for (idx, player) in self.players.iter().enumerate() {
             if let Some(client) = player.client().upgrade() {
                 let msg = if count == 2 {
@@ -121,6 +129,11 @@ impl Game {
                     TextMessage::PlayerJoined
                     // Message::PlayerJoined
                 };
+                
+                use std::str;
+                let serialized = &msg.serialize();
+                println!("sending ready: {}", str::from_utf8(serialized).unwrap());
+                
                 if let Ok(_) = client.write(&msg.serialize()) {
                     println!("player {} notified", player.name().as_ref().unwrap());
                 }

@@ -1,6 +1,5 @@
 package mlyn.controller;
 
-import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -24,6 +23,7 @@ import mlyn.model.Client;
 import mlyn.model.Machine;
 import mlyn.model.Message;
 import mlyn.model.MessageType;
+import mlyn.model.Machine.State;
 
 public class LobbyView extends BorderPane {
     protected Client client;
@@ -32,7 +32,7 @@ public class LobbyView extends BorderPane {
     private final Task<Message> joinTask = new Task<Message>() {
         @Override
         protected Message call() throws Exception {
-            return client.getMessage(MessageType.READY, MessageType.SERVER_CRASH);
+            return client.getMessage(MessageType.READY, MessageType.CRASH);
         }
     };
 
@@ -64,30 +64,56 @@ public class LobbyView extends BorderPane {
     }
 
     protected void waitForConnection() {
+        client.getMachine().setState(State.LOBBY);
         executorService.execute(joinTask);
+    }
+
+    protected void badArguments() {
+        Alert alert = new Alert(AlertType.ERROR);
+        alert.setHeaderText("Server crashed, game aborted!");
+        Platform.runLater( () -> alert.showAndWait());
+        close(null);
     }
 
     protected void joinGame(Message msg) {
 
         this.executorService.shutdownNow();
 
-        if(msg.type() == MessageType.SERVER_CRASH) {
-            Alert alert = new Alert(AlertType.ERROR);
-            alert.setHeaderText("Server crashed, game aborted!");
-            Platform.runLater( () -> alert.showAndWait());
-            close(null);
+        if(msg.type() == MessageType.CRASH) {
+            badArguments();
             return;
         }
 
-        ByteBuffer buffer = ByteBuffer.wrap(msg.data());
-        Machine.State state = Machine.State.valueOf(buffer.getInt());
-        Color color = buffer.get() == 1 ? Color.RED : Color.BLUE;
+        // ByteBuffer buffer = ByteBuffer.wrap(msg.data());
+        if(msg.data().length != 4) {
+            badArguments();
+            return;
+        }
+
+        Machine.State state = Machine.State.valueOf(Integer.parseInt(msg.data()[0]));
+        if(msg.data()[1].equals("1")) {
+            client.setColor(Color.RED);
+        } else if(msg.data()[1].equals("2")) {
+            client.setColor(Color.BLUE);
+        } else {
+            badArguments();
+            return;
+        }
 
         client.getMachine().setState(state);
-        client.setColor(color);
+
+        if(msg.data()[2].length() != 24) {
+            badArguments();
+            return;
+        }
+
+        if(msg.data()[3].isEmpty()) {
+            badArguments();
+            return;
+        }
 
         Platform.runLater(() -> {
-            Scene sc = new Scene(new GameController(client, buffer));
+            Scene sc = new Scene(new GameController(client, msg.data()[2], msg.data()[3]));
             Stage stage = (Stage) this.getScene().getWindow();
             stage.setScene(sc);
         

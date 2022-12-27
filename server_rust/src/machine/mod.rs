@@ -10,8 +10,8 @@ pub struct Machine {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum State {
-    Init = 0,
-    InLobby = 1,
+    // Init = 0,
+    // InLobby = 1,
     InGamePut = 2,
     InGamePutOpponent = 3,
     InGameTake = 4,
@@ -26,8 +26,8 @@ impl TryInto<State> for u32 {
 
     fn try_into(self) -> Result<State, Self::Error> {
         match self {
-            0 => Ok(State::Init),
-            1 => Ok(State::InLobby),
+            // 0 => Ok(State::Init),
+            // 1 => Ok(State::InLobby),
             2 => Ok(State::InGamePut),
             3 => Ok(State::InGamePutOpponent),
             4 => Ok(State::InGameTake),
@@ -53,12 +53,11 @@ impl Machine {
         receiver: &MessageReceiver,
         player: Arc<Player>,
     ) {
-        println!("current state: {:?}", self.state);
         let state = self.state.lock().unwrap().clone();
 
         match state {
             // State::Init => self.handle_init(message, receiver, player),
-            State::InLobby => self.handle_in_lobby(message, receiver, player),
+            // State::InLobby => self.handle_in_lobby(message, receiver, player),
             State::InGamePut => self.handle_in_game_put(message, receiver, player),
             State::InGameTake => self.handle_in_game_take(message, receiver, player),
             State::InGameMove => self.handle_in_game_move(message, receiver, player),
@@ -91,10 +90,10 @@ impl Machine {
         *self.state.lock().unwrap() = state;
     }
 
-    #[allow(unused_variables)]
-    fn handle_in_lobby(&self, message: TextMessage, receiver: &MessageReceiver, player: Arc<Player>) {
+    // #[allow(unused_variables)]
+    // fn handle_in_lobby(&self, message: TextMessage, receiver: &MessageReceiver, player: Arc<Player>) {
         // ignore everything
-    }
+    // }
 
     fn handle_in_game_put(&self, message: TextMessage, _: &MessageReceiver, player: Arc<Player>) {
         if let (TextMessage::Put(pos), Some(game)) = (message.clone(), player.game().upgrade()) {
@@ -104,21 +103,21 @@ impl Machine {
 
                     if let Some(opponent) = opponent.client().upgrade() {
                         if let Ok(_) = opponent.write(&message.serialize()) {
-                            println!("opponent notified");
+                            // println!("opponent notified");
                         }
 
                         if let Ok(_) = opponent.write(&TextMessage::GameState(opp_state).serialize()) {
-                            println!("opponent's state changed");
+                            // println!("opponent's state changed");
                         }
                     }
 
                     if let Some(client) = player.client().upgrade() {
                         if let Ok(_) = client.write(&TextMessage::Mok.serialize()) {
-                            println!("player notified");
+                            // println!("player notified");
                         }
 
                         if let Ok(_) = client.write(&TextMessage::GameState(self.state()).serialize()) {
-                            println!("player's state changed");
+                            // println!("player's state changed");
                         }
                     }
                 }
@@ -127,7 +126,7 @@ impl Machine {
                         if let Ok(_) =
                             client.write(&TextMessage::Nok(Some(err.to_string())).serialize())
                         {
-                            println!("sent err to client");
+                            // println!("sent err to client");
                         }
                     }
                 }
@@ -146,43 +145,39 @@ impl Machine {
                 match game.take(player.clone(), pos) {
                     Ok(opponent) => {
                         let opp_state = opponent.machine().state();
-                        if opp_state == State::GameOver {
-                            println!("game over");
-                        }
-
                         if let Some(opponent) = opponent.client().upgrade() {
                             if let Ok(_) = opponent.write(&message.serialize()) {
-                                println!("opponent notified");
+                                // println!("opponent notified");
                             }
 
                             if let Ok(_) =
                                 opponent.write(&TextMessage::GameState(opp_state.clone()).serialize())
                             {
-                                println!("opponent's state changed");
+                                // println!("opponent's state changed");
                             }
 
                             if opp_state == State::GameOver {
-                                println!("game over");
+                                // println!("game over");
                                 if let Ok(_) = opponent.write(&TextMessage::Over.serialize()) {
-                                    println!("sent game over");
+                                    // println!("sent game over");
                                 }
                             }
                         }
 
                         if let Some(client) = player.client().upgrade() {
                             if let Ok(_) = client.write(&TextMessage::Mok.serialize()) {
-                                println!("clicker notified :D");
+                                // println!("clicker notified :D");
                             }
 
                             if let Ok(_) =
                                 client.write(&TextMessage::GameState(self.state()).serialize())
                             {
-                                println!("opponent's state changed");
+                                // println!("opponent's state changed");
                             }
                             if opp_state == State::GameOver {
                                 println!("game over");
                                 if let Ok(_) = client.write(&TextMessage::Over.serialize()) {
-                                    println!("sent game over");
+                                    // println!("sent game over");
                                 }
                             }
                         }
@@ -196,7 +191,7 @@ impl Machine {
                             if let Ok(_) =
                                 client.write(&TextMessage::Nok(Some(err.to_string())).serialize())
                             {
-                                println!("sent err to client");
+                                // println!("sent err to client");
                             }
                         }
                     }
@@ -214,25 +209,25 @@ impl Machine {
 
                         if let Some(opponent) = opponent.client().upgrade() {
                             if let Ok(_) = opponent.write(&message.serialize()) {
-                                println!("opponent notified");
+                                // println!("opponent notified");
                             }
 
                             if let Ok(_) =
                                 opponent.write(&TextMessage::GameState(opp_state).serialize())
                             {
-                                println!("opponent's state changed");
+                                // println!("opponent's state changed");
                             }
                         }
 
                         if let Some(client) = player.client().upgrade() {
                             if let Ok(_) = client.write(&TextMessage::Mok.serialize()) {
-                                println!("clicker notified :D");
+                                // println!("clicker notified :D");
                             }
 
                             if let Ok(_) =
                                 client.write(&TextMessage::GameState(self.state()).serialize())
                             {
-                                println!("opponent's state changed");
+                                // println!("opponent's state changed");
                             }
                         }
                     }
@@ -241,7 +236,7 @@ impl Machine {
                             if let Ok(_) =
                                 client.write(&TextMessage::Nok(Some(err.to_string())).serialize())
                             {
-                                println!("sent err to client");
+                                // println!("sent err to client");
                             }
                         }
                     }
@@ -251,11 +246,6 @@ impl Machine {
     }
 
     fn handle_game_over(&self, _: TextMessage, _: &MessageReceiver, _: Arc<Player>) {
-        // TODO: add message: game_over_disconnect
-        // delete game from receiver
-        // that should delete players as well as they are stored as weak refs
-        println!("got msg after game over");
-        // self.set_state(State::Init);
     }
 
     pub fn join_game(
@@ -267,6 +257,7 @@ impl Machine {
         // but username can
         let games = receiver.games();
 
+        println!("Connecting player: {}", username);
         for game in games.lock().unwrap().iter() {
             if let Some(player) = game.has_player(&username) {
                 if let (Some(_), Some(client)) = (player.client().upgrade(), client.upgrade()) {
@@ -278,14 +269,14 @@ impl Machine {
             }
 
             if let Some(_) = game.try_join(&username, receiver, client.clone()) {
-                println!("joined with try");
+                println!("Joined with try");
                 return Some(game.clone());
             }
         }
 
         for game in games.lock().unwrap().iter() {
             if let Some(_) = game.force_join(&username, receiver, client.clone()) {
-                println!("joined with force");
+                println!("Joined with force");
                 return Some(game.clone());
             }
         }
@@ -323,7 +314,7 @@ impl Machine {
 
         let game = Game::new();
 
-        println!("trying to connect player");
+        println!("Connecting player: {}", username);
         if let Some(_) = game.force_join(&username, receiver, client) {
             games.lock().unwrap().push(game);
             return Some(());

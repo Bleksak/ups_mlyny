@@ -1,7 +1,6 @@
 package mlyn.controller;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -19,12 +18,12 @@ public class JoinGameController extends LobbyView {
 
     public JoinGameController(Client client, String username) throws IOException {
         super(client);
-        client.sendMessage(new Message(MessageType.PLAYER_INIT_JOIN, username.getBytes(StandardCharsets.UTF_8)));
+        client.sendMessage(new Message(MessageType.PLAYER_INIT_JOIN, username));
 
         Task<Message> receiverTask = new Task<Message>() {
             @Override
             protected Message call() throws Exception {
-                return client.getMessage(MessageType.SERVER_CRASH, MessageType.READY, MessageType.PLAYER_JOIN_NOTIFY, MessageType.NOK);
+                return client.getMessage(MessageType.CRASH, MessageType.READY, MessageType.JOINED, MessageType.NOK);
             }
         };
 
@@ -32,7 +31,7 @@ public class JoinGameController extends LobbyView {
             Message msg = receiverTask.getValue();
             switch(msg.type()) {
                 case NOK: {
-                    String message = new String(msg.data(), StandardCharsets.UTF_8);
+                    String message = msg.data().length > 0 ? msg.data()[0] : "Server crashed, game aborted!";
                     Alert alert = new Alert(AlertType.ERROR);
                     alert.setHeaderText(message);
                     Platform.runLater(() -> {
@@ -42,7 +41,7 @@ public class JoinGameController extends LobbyView {
                     this.close(null);
                 } break;
 
-                case PLAYER_JOIN_NOTIFY: {
+                case JOINED: {
                     waitForConnection();
                 } break;
 
@@ -50,7 +49,7 @@ public class JoinGameController extends LobbyView {
                     joinGame(msg);
                 } break;
 
-                case SERVER_CRASH: {
+                case CRASH: {
                     Alert alert = new Alert(AlertType.ERROR);
                     alert.setHeaderText("Server crashed, game aborted!");
                     Platform.runLater(() -> {

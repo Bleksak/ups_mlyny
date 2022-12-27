@@ -9,7 +9,7 @@ pub trait Serializable {
 }
 
 #[derive(Debug, Clone)]
-    pub enum TextMessage <'a>{
+pub enum TextMessage<'a> {
     Mok,
     Nok(Option<String>),
     Create(String),
@@ -31,13 +31,13 @@ impl<'a> Serializable for TextMessage<'a> {
     
     fn serialize(&self) -> Box<[u8]> {
         match self {
-            TextMessage::Mok => "2;OK".as_bytes().into(),
+            TextMessage::Mok => "3;OK;".as_bytes().into(),
             TextMessage::Nok(msg) => {
                 if let Some(msg) = msg {
-                    let len = msg.len() + 5;
+                    let len = msg.len() + 4;
                     format!("{len};NOK;{msg}").as_bytes().into()
                 } else {
-                    "3;NOK".as_bytes().into()
+                    "4;NOK;".as_bytes().into()
                 }
             },
             TextMessage::Create(username) => format!("{};CREATE;{username}", username.len() + 8).as_bytes().into(),
@@ -59,27 +59,34 @@ impl<'a> Serializable for TextMessage<'a> {
                 let pos1_string = pos1.to_string();
                 let pos2_string = pos2.to_string();
                 
-                format!("{};MOVE;{pos1_string};{pos2_string}", pos1_string.len() + pos2_string.len() + 7).as_bytes().into()
+                let len = pos1_string.len() + pos2_string.len() + 6;
+                
+                let msg = format!("{};MOVE;{};{}", len, pos1_string, pos2_string);
+                // println!("SENDING MOVE: {}", msg);
+                msg.as_bytes().into()
             },
-            TextMessage::Over => "4;OVER".as_bytes().into(),
-            TextMessage::Ping => "4;PING".as_bytes().into(),
-            TextMessage::Pong => "4;PONG".as_bytes().into(),
-            TextMessage::PlayerJoined => "6;JOINED".as_bytes().into(),
+            TextMessage::Over => "5;OVER;".as_bytes().into(),
+            TextMessage::Ping => "5;PING;".as_bytes().into(),
+            TextMessage::Pong => "5;PONG;".as_bytes().into(),
+            TextMessage::PlayerJoined => "7;JOINED;".as_bytes().into(),
             TextMessage::GameState(state) => {
                 let state_string = (state.clone() as u32).to_string();
-                format!("{};STATE;{state_string}", state_string.len() + 5).as_bytes().into()
+                let msg = format!("{};STATE;{state_string}", state_string.len() + 6);
+                // println!("SENDING STATE: {}", msg);
+                msg.as_bytes().into()
             },
-            TextMessage::Disconnect => "10;DISCONNECT".as_bytes().into(),
+            TextMessage::Disconnect => "10;DISCONNECT;".as_bytes().into(),
         }
     }
     
     fn deserialize(bytes: &[u8]) -> Option<Self::Object> {
-        let message = str::from_utf8(bytes).ok()?;
+        let message = str::from_utf8(bytes).ok()?.trim();
+        // println!("WHOLE_MSG: {message}");
         let whole_msg_len = message.len();
         
-        let mut splitted = message.split(';');
+        let splitted: Vec<&str> = message.split(';').collect();
         
-        let len_str = splitted.nth(0)?;
+        let len_str = splitted.get(0)?;
         let len_len = len_str.len() + 1;
         
         let len: usize = len_str.parse().ok()?;
@@ -88,14 +95,17 @@ impl<'a> Serializable for TextMessage<'a> {
             return None;
         }
         
-        match splitted.nth(1)? {
+        let message = message.trim();
+        let splitted: Vec<&str> = message.split(';').collect();
+        
+        match *splitted.get(1)? {
             "OK" => Some(TextMessage::Mok),
             "NOK" => Some(TextMessage::Nok(None)),
-            "CREATE" => Some(TextMessage::Create(splitted.nth(2)?.to_string())),
-            "JOIN" => Some(TextMessage::Join(splitted.nth(2)?.to_string())),
-            "PUT" => Some(TextMessage::Put(splitted.nth(2)?.parse().ok()?)),
-            "TAKE" => Some(TextMessage::Take(splitted.nth(2)?.parse().ok()?)),
-            "MOVE" => Some(TextMessage::Move(splitted.nth(2)?.parse().ok()?, splitted.nth(3)?.parse().ok()?)),
+            "CREATE" => Some(TextMessage::Create(splitted.get(2)?.to_string())),
+            "JOIN" => Some(TextMessage::Join(splitted.get(2)?.to_string())),
+            "PUT" => Some(TextMessage::Put(splitted.get(2)?.parse().ok()?)),
+            "TAKE" => Some(TextMessage::Take(splitted.get(2)?.parse().ok()?)),
+            "MOVE" => Some(TextMessage::Move(splitted.get(2)?.parse().ok()?, splitted.get(3)?.parse().ok()?)),
             "PING" => Some(TextMessage::Ping),
             "PONG" => Some(TextMessage::Pong),
             "DISCONNECT" => Some(TextMessage::Disconnect),
@@ -104,6 +114,7 @@ impl<'a> Serializable for TextMessage<'a> {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub enum Message {
     Mok,
@@ -122,6 +133,7 @@ pub enum Message {
     Disconnect,
 }
 
+#[allow(unused)]
 impl Message {
     pub fn serialize(self) -> Vec<u8> {
         let u32_size = std::mem::size_of::<u32>() as u32;
@@ -196,7 +208,7 @@ impl Message {
                 v.append(&mut u32::to_be_bytes(10).to_vec());
             }
             Message::PlayerJoined => {
-                println!("Player joined message sent!");
+                // println!("Player joined message sent!");
                 v.append(&mut u32::to_be_bytes(2 * u32_size).to_vec());
                 v.append(&mut u32::to_be_bytes(11).to_vec());
             }

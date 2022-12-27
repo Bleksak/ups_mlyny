@@ -3,27 +3,27 @@ package mlyn.model;
 import java.util.HashMap;
 
 public enum MessageType {
-    INVALID(-1),
-    OK(0),
-    NOK(1),
-    PLAYER_INIT_CREATE(2),
-    PLAYER_INIT_JOIN(3),
-    READY(4),
-    PLAYER_PUT(5),
-    PLAYER_TAKE(6),
-    PLAYER_MV(7),
-    OVER(8),
-    PING(9),
-    PONG(10),
-    PLAYER_JOIN_NOTIFY(11),
-    DISCONNECT(12),
-    GAME_STATE(14),
-    SERVER_CRASH(15);
+    INVALID("INVALID"),
+    OK("OK"),
+    NOK("NOK"),
+    PLAYER_INIT_CREATE("CREATE"),
+    PLAYER_INIT_JOIN("JOIN"),
+    READY("READY"),
+    PLAYER_PUT("PUT"),
+    PLAYER_TAKE("TAKE"),
+    PLAYER_MV("MOVE"),
+    OVER("OVER"),
+    PING("PING"),
+    PONG("PONG"),
+    JOINED("JOINED"),
+    DISCONNECT("DISCONNECT"),
+    STATE("STATE"),
+    CRASH("CRASH");
 
-    private final int m_value;
-    private static HashMap<Integer, MessageType> m_reverseMap = new HashMap<>();
+    private final String m_value;
+    private static HashMap<String, MessageType> m_reverseMap = new HashMap<>();
 
-    MessageType(int value) {
+    MessageType(String value) {
         m_value = value;
     }
 
@@ -33,11 +33,11 @@ public enum MessageType {
         }
     }
 
-    public int value() {
+    public String value() {
         return m_value;
     }
 
-    public static MessageType valueOf(int value) {
+    public static MessageType valueOfString(String value) {
         return m_reverseMap.getOrDefault(value, INVALID);
     }
 }

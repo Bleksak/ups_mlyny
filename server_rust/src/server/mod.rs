@@ -8,8 +8,6 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Weak};
 use std::time::Duration;
 
-// use crate::server::message::Message;
-
 use self::client::{Client, SocketError};
 use self::message::{TextMessage, Serializable};
 use self::receiver::MessageReceiver;
@@ -41,12 +39,13 @@ impl Server<'_> {
                         }
                     }
                 } else {
+                    println!("Disconnect!");
                     dc_channel.send(Arc::downgrade(&client)).unwrap();
                     recv_channel.send((client, TextMessage::Disconnect)).unwrap();
                 }
             }
             Err(_err @ SocketError::LimitReached) => {
-                if client.bad_message() >= 10 {
+                if client.bad_message() >= 30 {
                     dc_channel.send(Arc::downgrade(&client)).unwrap();
                     recv_channel.send((client, TextMessage::Disconnect)).unwrap();
                 }
