@@ -265,6 +265,7 @@ public class Client extends Thread {
 
 
             if(type == MessageType.PONG) {
+                System.out.println("pong received");
                 synchronized(ping) {
                     ping.sleep = System.currentTimeMillis();
                     ping.pinged = false;
@@ -307,6 +308,7 @@ public class Client extends Thread {
         byte[] serialized = msg.serialize();
         System.out.println("sending msg: " + new String(serialized, StandardCharsets.UTF_8));
         os.write(serialized);
+        os.write('\n');
         os.flush();
     }
 
@@ -317,7 +319,7 @@ public class Client extends Thread {
             }
 
             synchronized(ping) {
-                if(ping.pinged && System.currentTimeMillis() - ping.start >= 5000) {
+                if(ping.pinged && System.currentTimeMillis() - ping.start >= 10000000) {
                     return new Message(MessageType.CRASH, "");
                 }
             }

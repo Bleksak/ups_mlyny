@@ -29,15 +29,22 @@ impl Server<'_> {
         match client.read_all(Some(4096)) {
             Ok(data) => {
                 if data.len() != 0 {
-                    if let Some(message) = TextMessage::deserialize(&data) {
-                        println!("{:?}", message);
-                        recv_channel.send((client.clone(), message)).unwrap();
-                    } else {
-                        if client.bad_message() >= 10 {
-                            dc_channel.send(Arc::downgrade(&client)).unwrap();
-                            recv_channel.send((client, TextMessage::Disconnect)).unwrap();
+                    
+                    use std::str;
+                    if let Ok(msg_str) = str::from_utf8(&data) {
+                        for line in msg_str.lines() {
+                            if let Some(message) = TextMessage::deserialize(line.as_bytes()) {
+                                println!("{:?}", message);
+                                recv_channel.send((client.clone(), message)).unwrap();
+                            } else {
+                                if client.clone().bad_message() >= 10 {
+                                    dc_channel.send(Arc::downgrade(&client)).unwrap();
+                                    recv_channel.send((client.clone(), TextMessage::Disconnect)).unwrap();
+                                }
+                            }
                         }
                     }
+                    
                 } else {
                     println!("Disconnect!");
                     dc_channel.send(Arc::downgrade(&client)).unwrap();

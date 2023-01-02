@@ -81,7 +81,7 @@ impl<'a> Serializable for TextMessage<'a> {
     
     fn deserialize(bytes: &[u8]) -> Option<Self::Object> {
         let message = str::from_utf8(bytes).ok()?.trim();
-        // println!("WHOLE_MSG: {message}");
+        println!("WHOLE_MSG: {message}");
         let whole_msg_len = message.len();
         
         let splitted: Vec<&str> = message.split(';').collect();
