@@ -210,12 +210,20 @@ public class Client extends Thread {
                 return;
             }
 
+            if(is.available() < size) {
+                System.out.println("not enough bytes available");
+                messageQueue.add(new Message(MessageType.CRASH, ""));
+                return;
+            }
+
             byte[] message = is.readNBytes(size);
             if(message.length != size) {
                 System.out.println("message length != message size");
                 messageQueue.add(new Message(MessageType.CRASH, ""));
                 return;
             }
+
+            System.out.println("MSG LENGTH: " + message.length);
 
             String msgString = new String(message, StandardCharsets.UTF_8);
             if(msgString.charAt(msgString.length() - 1) == '\n') {
