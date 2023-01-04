@@ -54,7 +54,7 @@ class OpponentThread extends Thread {
         try {
             while(true) {
                 Message msg = client.getMessage(MessageType.CRASH, MessageType.PLAYER_PUT, MessageType.PLAYER_TAKE, MessageType.PLAYER_MV, MessageType.STATE, MessageType.DISCONNECT, MessageType.OVER);
-                System.out.println("GOT MESSAGE" + new String(msg.serialize(), StandardCharsets.UTF_8));
+                // System.out.println("GOT MESSAGE" + new String(msg.serialize(), StandardCharsets.UTF_8));
                 switch(msg.type()) {
                     case CRASH: {
                         controller.serverCrash();
@@ -384,6 +384,7 @@ public class GameController extends BorderPane {
 
     public void opponentDisconnected() {
         this.service.shutdownNow();
+        client.getMachine().setState(State.LOBBY);
         Platform.runLater(() -> {
             Scene sc = new Scene(new JoinGameController(client));
             Stage stage = (Stage) this.getScene().getWindow();
@@ -394,7 +395,6 @@ public class GameController extends BorderPane {
 
     private void circleClicked(MouseEvent e, int index) {
         // errorText.setText("");
-
         
         if(e.getButton() == MouseButton.SECONDARY) {
             prevIndex = -1;

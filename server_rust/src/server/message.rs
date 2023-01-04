@@ -75,7 +75,7 @@ impl<'a> Serializable for TextMessage<'a> {
                 // println!("SENDING STATE: {}", msg);
                 msg.as_bytes().into()
             },
-            TextMessage::Disconnect => "10;DISCONNECT;".as_bytes().into(),
+            TextMessage::Disconnect => "11;DISCONNECT;".as_bytes().into(),
         }
     }
     
