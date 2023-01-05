@@ -21,6 +21,12 @@ pub struct Server<'a> {
 }
 
 impl Server<'_> {
+    
+    fn bad_message(client: Arc<Client>) {
+        if let Ok(_) = client.write(&TextMessage::Nok(Some("Bad message".to_string())).serialize()) {
+        }
+    }
+    
     fn process_request(
         recv_channel: Sender<(Arc<Client>, TextMessage)>,
         dc_channel: Sender<Weak<Client>>,
@@ -52,7 +58,7 @@ impl Server<'_> {
                 }
             }
             Err(_err @ SocketError::LimitReached) => {
-                if client.bad_message() >= 30 {
+                if client.bad_message() >= 10 {
                     dc_channel.send(Arc::downgrade(&client)).unwrap();
                     recv_channel.send((client, TextMessage::Disconnect)).unwrap();
                 }

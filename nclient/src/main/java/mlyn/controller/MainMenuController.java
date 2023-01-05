@@ -1,6 +1,7 @@
 package mlyn.controller;
 
 import java.io.IOException;
+import java.util.Set;
 
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
@@ -39,7 +40,7 @@ public class MainMenuController extends BorderPane {
 
         quitButton.setMinHeight(50);
         quitButton.setMinWidth(128);
-        quitButton.setOnAction(e -> Platform.exit());
+        quitButton.setOnAction(this::quitClicked);
 
         Label usernameLabel = new Label("Username");
         usernameLabel.setAlignment(Pos.CENTER);
@@ -79,7 +80,7 @@ public class MainMenuController extends BorderPane {
             
             short port = Short.parseShort(portField.getText());
 
-            Client client = new Client(ipField.getText(), port);
+            Client client = new Client(usernameField.getText(), ipField.getText(), port);
             Scene scene = new Scene(new CreateGameController(client, usernameField.getText()), 800, 600);
             stage.setScene(scene);
             stage.setResizable(false);
@@ -104,7 +105,7 @@ public class MainMenuController extends BorderPane {
             Stage stage = new Stage();
             short port = Short.parseShort(portField.getText());
 
-            Client client = new Client(ipField.getText(), port);
+            Client client = new Client(usernameField.getText(), ipField.getText(), port);
             Scene scene = new Scene(new JoinGameController(client, usernameField.getText()), 800, 600);
             stage.setScene(scene);
             stage.setResizable(false);
@@ -122,9 +123,19 @@ public class MainMenuController extends BorderPane {
             alert.setHeaderText("Invalid port!");
             alert.showAndWait();
         }
+
     }
 
     void quitClicked(ActionEvent event) {
+        Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
 
+        for(Thread t : threadSet) {
+            if(((Object)t instanceof OpponentThread) || ((Object)t instanceof Client) || ((Object)t instanceof JoinGameController) || ((Object)t instanceof CreateGameController) || ((Object)t instanceof GameController)) {
+                System.out.println("interrupting" + t.getClass().getName());
+                t.interrupt();
+            }
+        }
+
+        Platform.exit();
     }
 }

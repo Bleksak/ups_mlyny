@@ -131,9 +131,15 @@ impl Machine {
                         if let Ok(_) =
                             client.write(&TextMessage::Nok(Some(err.to_string())).serialize())
                         {
-                            // println!("sent err to client");
+                            println!("sent err to client");
                         }
                     }
+                }
+            }
+        } else {
+            if let Some(client) = player.client().upgrade() {
+                if let Ok(_) = client.write(&TextMessage::Nok(Some("Invalid message".to_string())).serialize()) {
+                    println!("sent err to client");
                 }
             }
         }
@@ -196,10 +202,16 @@ impl Machine {
                             if let Ok(_) =
                                 client.write(&TextMessage::Nok(Some(err.to_string())).serialize())
                             {
-                                // println!("sent err to client");
+                                println!("sent err to client");
                             }
                         }
                     }
+                }
+            }
+        } else {
+            if let Some(client) = player.client().upgrade() {
+                if let Ok(_) = client.write(&TextMessage::Nok(Some("Invalid message".to_string())).serialize()) {
+                    println!("sent err to client");
                 }
             }
         }
@@ -241,10 +253,16 @@ impl Machine {
                             if let Ok(_) =
                                 client.write(&TextMessage::Nok(Some(err.to_string())).serialize())
                             {
-                                // println!("sent err to client");
+                                println!("sent err to client");
                             }
                         }
                     }
+                }
+            }
+        } else {
+            if let Some(client) = player.client().upgrade() {
+                if let Ok(_) = client.write(&TextMessage::Nok(Some("Invalid message".to_string())).serialize()) {
+                    println!("sent err to client");
                 }
             }
         }

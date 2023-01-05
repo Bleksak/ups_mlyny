@@ -31,13 +31,13 @@ impl<'a> Serializable for TextMessage<'a> {
     
     fn serialize(&self) -> Box<[u8]> {
         match self {
-            TextMessage::Mok => "3;OK;".as_bytes().into(),
+            TextMessage::Mok => "2;OK".as_bytes().into(),
             TextMessage::Nok(msg) => {
                 if let Some(msg) = msg {
                     let len = msg.len() + 4;
                     format!("{len};NOK;{msg}").as_bytes().into()
                 } else {
-                    "4;NOK;".as_bytes().into()
+                    "3;NOK".as_bytes().into()
                 }
             },
             TextMessage::Create(username) => format!("{};CREATE;{username}", username.len() + 8).as_bytes().into(),
@@ -62,13 +62,12 @@ impl<'a> Serializable for TextMessage<'a> {
                 let len = pos1_string.len() + pos2_string.len() + 6;
                 
                 let msg = format!("{};MOVE;{};{}", len, pos1_string, pos2_string);
-                // println!("SENDING MOVE: {}", msg);
                 msg.as_bytes().into()
             },
-            TextMessage::Over => "5;OVER;".as_bytes().into(),
-            TextMessage::Ping => "5;PING;".as_bytes().into(),
-            TextMessage::Pong => "5;PONG;".as_bytes().into(),
-            TextMessage::PlayerJoined => "7;JOINED;".as_bytes().into(),
+            TextMessage::Over => "4;OVER".as_bytes().into(),
+            TextMessage::Ping => "4;PING".as_bytes().into(),
+            TextMessage::Pong => "4;PONG".as_bytes().into(),
+            TextMessage::PlayerJoined => "6;JOINED".as_bytes().into(),
             TextMessage::GameState(state) => {
                 let state_string = (state.clone() as u32).to_string();
                 let msg = format!("{};STATE;{state_string}", state_string.len() + 6);
@@ -81,7 +80,7 @@ impl<'a> Serializable for TextMessage<'a> {
     
     fn deserialize(bytes: &[u8]) -> Option<Self::Object> {
         let message = str::from_utf8(bytes).ok()?.trim();
-        println!("WHOLE_MSG: {message}");
+        println!("RECEIVED MSG: {message}");
         let whole_msg_len = message.len();
         
         let splitted: Vec<&str> = message.split(';').collect();

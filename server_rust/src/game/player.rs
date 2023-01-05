@@ -26,7 +26,7 @@ impl Player {
             username: Mutex::new(None),
             client: Mutex::new(Weak::new()),
             color,
-            inventory_cnt: Mutex::new(9),
+            inventory_cnt: Mutex::new(4),
             board_cnt: Mutex::new(0),
             machine: Arc::new(Machine::new(state)),
             game: Mutex::new(Weak::new()),

@@ -19,8 +19,9 @@ class Ping {
 }
 
 public class Client extends Thread {
-    private String ip;
-    private short port;
+    public String ip;
+    public String username;
+    public short port;
     private Socket socket;
     private InputStream is;
     private OutputStream os;
@@ -36,7 +37,8 @@ public class Client extends Thread {
     ConcurrentLinkedQueue<Message> messageQueue = new ConcurrentLinkedQueue<>();
     ConcurrentLinkedQueue<Message> sendQueue = new ConcurrentLinkedQueue<>();
 
-    public Client(String ip, short port) throws IOException {
+    public Client(String username, String ip, short port) throws IOException {
+        this.username = username;
         this.ip = ip;
         this.port = port;
 
@@ -118,7 +120,7 @@ public class Client extends Thread {
             try {
                 Thread.sleep(20);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                return;
             }
         }
     }

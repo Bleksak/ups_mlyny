@@ -1,6 +1,6 @@
 package mlyn.controller;
 
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -120,7 +120,6 @@ class OpponentThread extends Thread {
                             }
 
                             System.out.println("SETTING STATE");
-                            
 
                             Machine.State newState = Machine.State.valueOf(Integer.parseInt(msg.data()[0]));
                             client.getMachine().setState(newState);
@@ -346,8 +345,45 @@ public class GameController extends BorderPane {
                 alert.setHeaderText(draw);
             }
 
-            alert.showAndWait().ifPresent(e -> quitClicked(null));
+            alert.showAndWait().ifPresent(e -> gameOverClicked());
         });
+    }
+
+    public void gameOverClicked() {
+        Color clientColor = client.getColor();
+        Color oppColor = (clientColor == Color.RED) ? Color.BLUE : Color.RED;
+
+        int myCount = countColor(clientColor);
+        int oppCount = countColor(oppColor);
+
+        boolean won = myCount > oppCount;
+
+        Platform.runLater(() -> {
+            this.client.disconnect();
+            this.service.shutdownNow();
+            this.getScene().getWindow().fireEvent(new WindowEvent(this.getScene().getWindow(), WindowEvent.WINDOW_CLOSE_REQUEST));
+            try {
+                Stage stage = new Stage();
+                Client newClient = new Client(client.username, client.ip, client.port);
+                Scene scene;
+                if(won) {
+                    scene = new Scene(new CreateGameController(newClient, client.username), 800, 600);
+                }
+                else {
+                    scene = new Scene(new JoinGameController(newClient, newClient.username));
+                }
+            
+                stage.setScene(scene);
+                stage.setResizable(false);
+                stage.centerOnScreen();
+                stage.setTitle("Mill - Game");
+            } catch(IOException e) {
+                Alert alert = new Alert(AlertType.ERROR);
+                alert.setHeaderText("Failed to connect to the server");
+                alert.showAndWait();
+            }
+        });
+        
     }
 
     public GameController(Client client, String board, String opponent) {
@@ -395,7 +431,6 @@ public class GameController extends BorderPane {
 
     private void circleClicked(MouseEvent e, int index) {
         // errorText.setText("");
-        
         if(e.getButton() == MouseButton.SECONDARY) {
             prevIndex = -1;
             return;

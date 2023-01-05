@@ -9,7 +9,6 @@ import javafx.scene.control.Alert.AlertType;
 import mlyn.model.Client;
 import mlyn.model.Message;
 import mlyn.model.MessageType;
-import mlyn.model.Machine.State;
 
 public class CreateGameController extends LobbyView {
 
