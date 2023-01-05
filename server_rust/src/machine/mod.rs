@@ -62,7 +62,12 @@ impl Machine {
             State::InGameTake => self.handle_in_game_take(message, receiver, player),
             State::InGameMove => self.handle_in_game_move(message, receiver, player),
             State::GameOver => self.handle_game_over(message, receiver, player),
-            _ => { /* ignore opponent's move */ }
+            _ => {
+                if let Some(client) = player.client().upgrade() {
+                    if let Ok(_) = client.write(&TextMessage::Nok(Some("It's not your turn".to_string())).serialize()) {
+                    }
+                }
+            }
         }
     }
 
