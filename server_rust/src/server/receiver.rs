@@ -92,7 +92,7 @@ impl MessageReceiver {
         for (sock, player) in players.lock().unwrap().iter() {
             if let Some(player) = player.upgrade() {
                 let timer = player.ping_timer();
-                if player.rest_timer().is_none() && timer.elapsed().as_secs() >= 5 {
+                if player.rest_timer().is_none() && timer.elapsed().as_secs() >= 1800 {
                     if let (Some(game), Some(client)) = (player.game().upgrade(), player.client().upgrade()) {
                         disconnect_channel.send(player.client()).unwrap();
                         game.notify_disconnect(client);
