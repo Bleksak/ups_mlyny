@@ -54,7 +54,7 @@ public class MainMenuController extends BorderPane {
         usernameField.setAlignment(Pos.CENTER);
         usernameField.setMaxWidth(128);
         
-        VBox vbox = new VBox(ipLabel, ipField, portLabel, portField, usernameLabel, usernameField, createButton, joinButton, quitButton);
+        VBox vbox = new VBox(ipLabel, ipField, portLabel, portField, usernameLabel, usernameField, /* createButton, */ joinButton, quitButton);
         vbox.setAlignment(Pos.CENTER);
         vbox.setSpacing(10);
         vbox.setMinWidth(128);

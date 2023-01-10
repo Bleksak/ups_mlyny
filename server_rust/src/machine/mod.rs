@@ -303,13 +303,20 @@ impl Machine {
                 return Some(game.clone());
             }
         }
-
-        if let Some(client) = client.upgrade() {
-            if let Ok(_) = client
-                .write(&TextMessage::Nok(Some("There are no open lobbies!".to_string())).serialize())
-            {
-            }
+        
+        let game = Game::new();
+        println!("Connecting player: {}", username);
+        if let Some(_) = game.force_join(&username, receiver, client) {
+            games.lock().unwrap().push(game.clone());
+            return Some(game);
         }
+        
+        // if let Some(client) = client.upgrade() {
+        //     if let Ok(_) = client
+        //         .write(&TextMessage::Nok(Some("There are no open lobbies!".to_string())).serialize())
+        //     {
+        //     }
+        // }
 
         None
     }

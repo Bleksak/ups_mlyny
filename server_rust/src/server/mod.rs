@@ -21,7 +21,6 @@ pub struct Server<'a> {
 }
 
 impl Server<'_> {
-    
     fn bad_message(client: Arc<Client>) {
         if let Ok(_) = client.write(&TextMessage::Nok(Some("Bad message".to_string())).serialize()) {
         }

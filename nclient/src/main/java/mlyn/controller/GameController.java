@@ -17,6 +17,7 @@ import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -349,39 +350,38 @@ public class GameController extends BorderPane {
         });
     }
 
-    public void gameOverClicked() {
-        Color clientColor = client.getColor();
-        Color oppColor = (clientColor == Color.RED) ? Color.BLUE : Color.RED;
-
-        int myCount = countColor(clientColor);
-        int oppCount = countColor(oppColor);
-
-        boolean won = myCount > oppCount;
-
+    private void playAgain() {
         Platform.runLater(() -> {
-            this.client.disconnect();
-            this.service.shutdownNow();
-            this.getScene().getWindow().fireEvent(new WindowEvent(this.getScene().getWindow(), WindowEvent.WINDOW_CLOSE_REQUEST));
             try {
                 Stage stage = new Stage();
                 Client newClient = new Client(client.username, client.ip, client.port);
-                Scene scene;
-                if(won) {
-                    scene = new Scene(new CreateGameController(newClient, client.username), 800, 600);
-                }
-                else {
-                    scene = new Scene(new JoinGameController(newClient, newClient.username));
-                }
+                Scene scene = new Scene(new JoinGameController(newClient, newClient.username));
             
                 stage.setScene(scene);
                 stage.setResizable(false);
                 stage.centerOnScreen();
                 stage.setTitle("Mill - Game");
+                stage.show();
             } catch(IOException e) {
                 Alert alert = new Alert(AlertType.ERROR);
                 alert.setHeaderText("Failed to connect to the server");
                 alert.showAndWait();
             }
+        });
+    }
+
+    public void gameOverClicked() {
+        Platform.runLater(() -> {
+            this.client.disconnect();
+            this.service.shutdownNow();
+            this.getScene().getWindow().fireEvent(new WindowEvent(this.getScene().getWindow(), WindowEvent.WINDOW_CLOSE_REQUEST));
+
+            Alert alert = new Alert(AlertType.CONFIRMATION, "Do you want to play again?", ButtonType.YES, ButtonType.NO);
+            alert.showAndWait().ifPresent((e) -> {
+                if(e == ButtonType.YES) {
+                    playAgain();
+                }
+            });
         });
         
     }
