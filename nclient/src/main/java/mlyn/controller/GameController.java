@@ -120,9 +120,13 @@ class OpponentThread extends Thread {
                                 controller.serverCrash();
                             }
 
-                            System.out.println("SETTING STATE");
-
                             Machine.State newState = Machine.State.valueOf(Integer.parseInt(msg.data()[0]));
+                            if(newState == null) {
+                                System.out.println("bad state");
+                                controller.serverCrash();
+                                return;
+                            }
+
                             client.getMachine().setState(newState);
                             System.out.println(newState.name());
                             controller.updateTurn();

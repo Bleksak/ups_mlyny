@@ -91,6 +91,13 @@ public class LobbyView extends BorderPane {
         }
 
         Machine.State state = Machine.State.valueOf(Integer.parseInt(msg.data()[0]));
+
+        if(state == null) {
+            System.out.println("bad state");
+            badArguments();
+            return;
+        }
+
         if(msg.data()[1].equals("1")) {
             client.setColor(Color.RED);
         } else if(msg.data()[1].equals("2")) {
